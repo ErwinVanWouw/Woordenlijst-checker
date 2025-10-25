@@ -1,4 +1,4 @@
-# Woordenlijst-checker door Black Kite
+# Woordenlijst-checker door Black Kite (blackkite.nl)
 # Gebruikslimiet
 from collections import deque
 from datetime import datetime, timedelta
@@ -41,10 +41,10 @@ HOTKEY = 'F9'
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
-    """Strikte controle - alleen officiële schrijfwijzen (lemmas) voor speciale gevallen"""
+    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message)"""
     if not word or not word.strip():
         print("[Info] Klembord is leeg, actie geannuleerd.")
-        return False, word
+        return False, word, None
 
     # Normaliseer alle typografische apostrofs naar rechte apostrof
     import re
@@ -76,54 +76,91 @@ def check_word_online(word):
         xml_content = response.text
 
         if "<found_lemmata>" in xml_content:
-            import re
-
-            # Vind alle wordforms en lemmas
+            # Vind alle wordforms en lemma's
             wordforms = re.findall(r'<wordform>(.*?)</wordform>', xml_content)
             lemmas = [l for l in re.findall(r'<lemma>(.*?)</lemma>', xml_content) if l]
 
-            # UITZONDERING: woorden met alleen eerste letter als hoofdletter (Fiets, Auto, etc.)
-            # Deze zijn altijd OK als de lowercase versie bestaat
+            # CHECK 1: Zijn er lemma's met interne hoofdletters?
+            has_internal_caps_lemma = any(
+                any(c.isupper() for c in lemma[1:]) 
+                for lemma in lemmas
+            )
+
+            if has_internal_caps_lemma:
+                # STRIKTE MODUS: alleen lemma's EN correcte wordforms met juiste hoofdletters
+
+                # Optie 1: is het een exact lemma?
+                if word_normalized in lemmas:
+                    print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
+                    return True, word, None
+
+                # Optie 2: is het een wordform met de JUISTE hoofdletters?
+                if word_normalized in wordforms:
+                    # Vind een vergelijkbaar lemma om het patroon te checken
+                    base_lemma = None
+                    for lemma in lemmas:
+                        if any(c.isupper() for c in lemma[1:]):
+                            # Dit lemma heeft interne hoofdletters
+                            if word_normalized.lower().startswith(lemma.lower()[:5]):
+                                base_lemma = lemma
+                                break
+
+                    if base_lemma:
+                        # Check of ALLE hoofdletters exact overeenkomen
+                        min_len = min(len(base_lemma), len(word_normalized))
+
+                        # Vergelijk ALLE karakters op hoofdletter/kleine letter
+                        exact_match = True
+                        for i in range(min_len):
+                            if base_lemma[i].isupper() != word_normalized[i].isupper():
+                                exact_match = False
+                                break
+
+                        if exact_match:
+                            print(f"[Resultaat] '{word}' is GEVONDEN (correcte vervoeging).")
+                            return True, word, None
+
+                # Niet goedgekeurd - geef feedback
+                relevant_lemmas = [l for l in lemmas if any(c.isupper() for c in l[1:])]
+                if relevant_lemmas:
+                    error_msg = f"Gebruik '{relevant_lemmas[0]}' of correcte vervoeging"
+                    print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
+                    return False, word, error_msg
+                else:
+                    print(f"[Resultaat] '{word}' is NIET correct gespeld.")
+                    return False, word, "Controleer de spelling"
+
+            # CHECK 2: Hoofdlettergevoelige woorden (pH, mkb, etc.)
+            for lemma in lemmas:
+                if lemma.lower() == word_normalized.lower() and lemma != word_normalized:
+                    error_msg = f"Gebruik '{lemma}'"
+                    print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
+                    return False, word, error_msg
+
+            # UITZONDERING: enkelvoudig woord met alleen eerste hoofdletter (Fiets)
             if (len(word_normalized) > 1 and 
                 word_normalized[0].isupper() and 
                 word_normalized[1:].islower() and 
-                not ' ' in word_normalized): # Enkelvoudige woorden
+                ' ' not in word_normalized): # Enkelvoudige woorden
 
                 if word_normalized.lower() in wordforms or word_normalized.lower() in lemmas:
                     print(f"[Resultaat] '{word}' is GEVONDEN (hoofdletter toegestaan).")
-                    return True, word
+                    return True, word, None
 
-            # CHECK: Bestaat er een lemma met andere hoofdletters?
-            lemma_different_case = any(l.lower() == word_normalized.lower() and l != word_normalized for l in lemmas)
-
-            if lemma_different_case:
-                # Er bestaat een lemma met andere hoofdletters > alleen exacte match is goed                
-                if word_normalized in lemmas:
-                    print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
-                    return True, word
-                else:
-                    # Vind de correcte versie                    
-                    correct = next((l for l in lemmas if l.lower() == word_normalized.lower()), None)
-                    if correct:
-                        print(f"[Resultaat] '{word}' is NIET correct (gebruik '{correct}').")
-                    else:
-                        print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-                    return False, word
-
-            # Voor andere woorden: check wordforms OF lemmas
+            # NORMALE MODUS: geen speciale hoofdletters, accepteer wordforms
             if word_normalized in wordforms or word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN.")
-                return True, word
+                return True, word, None
 
             print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-            return False, word
+            return False, word, "Controleer de spelling"
         else:
             print(f"[Resultaat] '{word}' is NIET gevonden.")
-            return False, word
+            return False, word, None
 
     except Exception as e:
         print(f"[Fout] Er is een fout opgetreden: {e}")
-        return False, word
+        return False, word, "Er is een fout opgetreden"
 
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word):
@@ -174,8 +211,8 @@ def show_success_popup(word):
     # Start de GUI-loop
     popup.mainloop()
 
-def show_failure_popup(word):
-    """Toon pop-up voor niet-gevonden woord met Ja/Nee knoppen"""
+def show_failure_popup(word, error_message=None):
+    """Toon pop-up voor niet-gevonden woord met Ja/Nee-knoppen"""
     url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
 
     root = tk.Tk()
@@ -193,18 +230,24 @@ def show_failure_popup(word):
     except:
         pass  # Gebruik standaard icoon als bestand niet bestaat
 
-    # Centreer het venster
-    dialog.geometry("320x150+{}+{}".format(
-        int(dialog.winfo_screenwidth()/2 - 160),
-        int(dialog.winfo_screenheight()/2 - 75)
+    # Centreer het venster (maak groter voor langere tekst)
+    dialog.geometry("400x180+{}+{}".format(
+        int(dialog.winfo_screenwidth()/2 - 200),
+        int(dialog.winfo_screenheight()/2 - 90)
     ))
 
-    # Hoofdtekst
-    tk.Label(dialog, 
-             text=f"'{word}'\nstaat niet in Woordenlijst.org.\n\nWilt u de website openen?",
-             pady=15).pack()
+    # Hoofdtekst - gebruik specifieke foutmelding of standaard
+    if error_message:
+        message_text = f"'{word}'\nstaat niet in Woordenlijst.org.\n\n{error_message}\n\nWilt u de website openen?"
+    else:
+        message_text = f"'{word}'\nstaat niet in Woordenlijst.org.\n\nWilt u de website openen?"
 
-    # Knoppenframe
+    tk.Label(dialog, 
+             text=message_text,
+             pady=15,
+             wraplength=350).pack()
+
+    # Buttons frame
     button_frame = tk.Frame(dialog)
     button_frame.pack(pady=5)
 
@@ -269,21 +312,21 @@ def perform_check():
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
 
-    # Voer de online check uit
-    is_valid, checked_word = check_word_online(selected_word)
+    # Voer de online check uit (nu met 3 return waarden)
+    is_valid, checked_word, error_message = check_word_online(selected_word)
 
-    # Toon de juiste pop-up
+    # Geef feedback op basis van het resultaat
     if is_valid:
         # Toon pop-up met groen vinkje
         show_success_popup(checked_word)
     else:
-        # Toon pop-up met Ja/Nee-opties
+        # Toon pop-up met Ja/Nee-opties en specifieke foutmelding
         if checked_word:
-            show_failure_popup(checked_word)
+            show_failure_popup(checked_word, error_message)
 
 # --- HOOFDFUNCTIE ---
 def main():
-    print("--- Woordenlijstchecker  ---")
+    print("--- Woordenlijst Checker ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
     print("Druk op 'Esc' om het script volledig te stoppen.")
     print("----------------------------------------------------------")
