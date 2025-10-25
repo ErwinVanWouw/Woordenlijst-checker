@@ -1,4 +1,4 @@
-# Woordenlijst-checker  v1.2.1 door Black Kite (blackkite.nl)
+# Woordenlijst-checker v1.2.1 door Black Kite (blackkite.nl)
 # Gebruikslimiet
 from collections import deque
 from datetime import datetime, timedelta
@@ -117,13 +117,13 @@ def check_word_online(word):
                                 break
 
                         if exact_match:
-                            print(f"[Resultaat] '{word}' is GEVONDEN (correcte vervoeging).")
+                            print(f"[Resultaat] '{word}' is GEVONDEN.")
                             return True, word, None
 
                 # Niet goedgekeurd - geef feedback
                 relevant_lemmas = [l for l in lemmas if any(c.isupper() for c in l[1:])]
                 if relevant_lemmas:
-                    error_msg = f"Gebruik '{relevant_lemmas[0]}' of correcte vervoeging"
+                    error_msg = f"Gebruik '{relevant_lemmas[0]}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
                     return False, word, error_msg
                 else:
@@ -337,4 +337,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
