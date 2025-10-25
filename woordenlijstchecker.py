@@ -1,4 +1,4 @@
-# Woordenlijst-checker door Black Kite (blackkite.nl)
+# Woordenlijst-checker  v1.2.1 door Black Kite (blackkite.nl)
 # Gebruikslimiet
 from collections import deque
 from datetime import datetime, timedelta
@@ -337,3 +337,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
