@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.2.1 door Black Kite (blackkite.nl)
+# Woordenlijst-checker v1.2.2 door blackkite.nl
 # Gebruikslimiet
 from collections import deque
 from datetime import datetime, timedelta
@@ -80,7 +80,12 @@ def check_word_online(word):
             wordforms = re.findall(r'<wordform>(.*?)</wordform>', xml_content)
             lemmas = [l for l in re.findall(r'<lemma>(.*?)</lemma>', xml_content) if l]
 
-            # CHECK 1: Zijn er lemma's met interne hoofdletters?
+            # NIEUWE CHECK: is het ingevoerde woord zelf een lemma?
+            if word_normalized in lemmas:
+                print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
+                return True, word, None
+
+            # CHECK 1: zijn er lemma's met interne hoofdletters?
             has_internal_caps_lemma = any(
                 any(c.isupper() for c in lemma[1:]) 
                 for lemma in lemmas
@@ -88,13 +93,6 @@ def check_word_online(word):
 
             if has_internal_caps_lemma:
                 # STRIKTE MODUS: alleen lemma's EN correcte wordforms met juiste hoofdletters
-
-                # Optie 1: is het een exact lemma?
-                if word_normalized in lemmas:
-                    print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
-                    return True, word, None
-
-                # Optie 2: is het een wordform met de JUISTE hoofdletters?
                 if word_normalized in wordforms:
                     # Vind een vergelijkbaar lemma om het patroon te checken
                     base_lemma = None
@@ -130,9 +128,15 @@ def check_word_online(word):
                     print(f"[Resultaat] '{word}' is NIET correct gespeld.")
                     return False, word, "Controleer de spelling"
 
-            # CHECK 2: Hoofdlettergevoelige woorden (pH, mkb, etc.)
+            # CHECK 2: hoofdlettergevoelige woorden (pH, mkb, etc.)
             for lemma in lemmas:
                 if lemma.lower() == word_normalized.lower() and lemma != word_normalized:
+                    lowercase_versions = [l for l in lemmas if l == word_normalized.lower()]
+                    uppercase_versions = [l for l in lemmas if l[0].isupper() and l.lower() == word_normalized.lower()]
+
+                    if lowercase_versions and uppercase_versions:
+                        continue
+
                     error_msg = f"Gebruik '{lemma}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
                     return False, word, error_msg
@@ -155,12 +159,63 @@ def check_word_online(word):
             print(f"[Resultaat] '{word}' is NIET correct gespeld.")
             return False, word, "Controleer de spelling"
         else:
+            # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
-            return False, word, None
+
+            # Haal suggesties op via spellcheck API
+            suggestions = get_spelling_suggestions(word_normalized)
+
+            if suggestions:
+                error_msg = f"Bedoelde u: {suggestions}"
+                return False, word, error_msg
+            else:
+                return False, word, None
 
     except Exception as e:
         print(f"[Fout] Er is een fout opgetreden: {e}")
         return False, word, "Er is een fout opgetreden"
+
+def get_spelling_suggestions(word):
+    """Haal spellingsuggesties op via de spellcheck API"""
+    try:
+        spellcheck_url = "https://woordenlijst.org/MolexServe/lexicon/spellcheck"
+
+        params = {
+            "database": "gig_pro_wrdlst",
+            "word": word,
+            "part_of_speech": "",
+            "dummy": str(int(time.time() * 1000))
+        }
+
+        response = requests.get(spellcheck_url, params=params, timeout=5)
+        response.raise_for_status()
+
+        xml_content = response.text
+
+        # Parse suggesties
+        import re
+
+        # Zoek naar corrections (meerdere suggesties gescheiden door |)
+        corrections_match = re.search(r'<corrections>(.*?)</corrections>', xml_content)
+        if corrections_match:
+            corrections = corrections_match.group(1)
+            if corrections:
+                # Split op | en maak het netjes
+                suggestions = [s.strip() for s in corrections.split('|')]
+                return ' / '.join(suggestions[:3])  # Max 3 suggesties
+
+        # Als geen corrections, probeer best_guess
+        best_guess_match = re.search(r'<best_guess>(.*?)</best_guess>', xml_content)
+        if best_guess_match:
+            best_guess = best_guess_match.group(1)
+            if best_guess:
+                return best_guess
+
+        return None
+
+    except Exception as e:
+        print(f"[Waarschuwing] Kon geen suggesties ophalen: {e}")
+        return None
 
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word):
@@ -212,7 +267,7 @@ def show_success_popup(word):
     popup.mainloop()
 
 def show_failure_popup(word, error_message=None):
-    """Toon pop-up voor niet-gevonden woord met Ja/Nee-knoppen"""
+    """Toon pop-up voor niet-gevonden woord met Ja/Nee-knoppen en klikbare suggesties"""
     url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
 
     root = tk.Tk()
@@ -230,26 +285,77 @@ def show_failure_popup(word, error_message=None):
     except:
         pass  # Gebruik standaard icoon als bestand niet bestaat
 
-    # Centreer het venster (maak groter voor langere tekst)
-    dialog.geometry("400x180+{}+{}".format(
-        int(dialog.winfo_screenwidth()/2 - 200),
-        int(dialog.winfo_screenheight()/2 - 90)
+    # Bepaal hoogte op basis van inhoud
+    base_height = 180  # Basishoogte voor titel, knoppen en footer
+
+    # Check of er suggesties zijn
+    has_suggestions = error_message and error_message.startswith("Bedoelde u:")
+    if has_suggestions:
+        # Tel aantal suggesties
+        suggestions_text = error_message.replace("Bedoelde u:", "").strip()
+        suggestions = [s.strip() for s in suggestions_text.split('/')]
+        num_suggestions = min(len(suggestions), 3)  # Max 3
+        # Voeg 30 pixels per suggestie toe + 30 voor label "Bedoelde u:"
+        extra_height = 30 + (num_suggestions * 30)
+    elif error_message:
+        # Voor normale foutmelding zoals "Gebruik 'pH'"
+        extra_height = 30
+    else:
+        # Bij geen foutmelding
+        extra_height = 0
+
+    total_height = base_height + extra_height
+
+    # Stel geometrie in met dynamische hoogte
+    dialog.geometry("450x{}+{}+{}".format(
+        total_height,
+        int(dialog.winfo_screenwidth()/2 - 225),
+        int(dialog.winfo_screenheight()/2 - total_height//2)
     ))
 
-    # Hoofdtekst - gebruik specifieke foutmelding of standaard
+    # Hoofdtekst
+    main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
+    tk.Label(dialog, text=main_text, pady=10).pack()
+
+    # Suggesties of foutmelding
     if error_message:
-        message_text = f"'{word}'\nstaat niet in Woordenlijst.org.\n\n{error_message}\n\nWilt u de website openen?"
-    else:
-        message_text = f"'{word}'\nstaat niet in Woordenlijst.org.\n\nWilt u de website openen?"
+        # Check of het suggesties zijn (begint met "Bedoelde u:")
+        if error_message.startswith("Bedoelde u:"):
+            # Toon label "Bedoelde u:"
+            tk.Label(dialog, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(pady=(5, 2))
 
-    tk.Label(dialog, 
-             text=message_text,
-             pady=15,
-             wraplength=350).pack()
+            # Frame voor suggestielinks
+            suggestions_frame = tk.Frame(dialog)
+            suggestions_frame.pack(pady=5)
 
-    # Buttons frame
+            # Haal suggesties uit de foutmelding
+            suggestions_text = error_message.replace("Bedoelde u:", "").strip()
+            suggestions = [s.strip() for s in suggestions_text.split('/')]
+
+            # Maak klikbare links voor elke suggestie
+            for suggestion in suggestions[:3]:  # Max 3 suggesties
+                link = tk.Label(
+                    suggestions_frame,
+                    text=suggestion,
+                    fg="blue",
+                    cursor="hand2",
+                    font=("Arial", 10, "underline")
+                )
+                link.pack(pady=2)
+                # Open direct de website met deze suggestie
+                link.bind("<Button-1>", lambda e, s=suggestion: webbrowser.open_new_tab(
+                    f"https://woordenlijst.org/zoeken/?q={quote(s)}"
+                ))
+        else:
+            # Normale foutmelding (zoals "Gebruik 'pH'")
+            tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
+
+    # Vraag om website te openen
+    tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
+
+    # Buttonsframe
     button_frame = tk.Frame(dialog)
-    button_frame.pack(pady=5)
+    button_frame.pack(pady=10)
 
     def yes_action():
         webbrowser.open_new_tab(url_to_open)
@@ -283,7 +389,7 @@ def show_failure_popup(word, error_message=None):
 def perform_check():
     """De volledige actie: kopieer, lees klembord, start de controle en geef feedback."""
     try:
-        # Bewaar huidige klembord inhoud
+        # Bewaar huidige klembordinhoud
         original_clipboard = pyperclip.paste()
 
         # Wis klembord eerst (belangrijk voor Word)
@@ -293,12 +399,12 @@ def perform_check():
         keyboard.send('ctrl+c')
         time.sleep(0.5)  # Langere wachttijd voor Word
 
-        # Haal nieuwe klembord inhoud op
+        # Haal nieuwe klembordinhoud op
         selected_word = pyperclip.paste().strip()
 
         # Als klembord nog steeds leeg is, probeer alternatief
         if not selected_word:
-            keyboard.send('ctrl+ins')  # Alternatieve kopieer-combinatie
+            keyboard.send('ctrl+ins')  # Alternatieve kopieercombinatie
             time.sleep(0.5)
             selected_word = pyperclip.paste().strip()
 
@@ -312,7 +418,7 @@ def perform_check():
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
 
-    # Voer de online check uit (nu met 3 return waarden)
+    # Voer de online check uit (nu met 3 returnwaarden)
     is_valid, checked_word, error_message = check_word_online(selected_word)
 
     # Geef feedback op basis van het resultaat
