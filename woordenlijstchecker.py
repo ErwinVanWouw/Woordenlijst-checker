@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.2.2 door blackkite.nl
+# Woordenlijst-checker v1.2.3 door Black Kite (blackkite.nl)
 # Gebruikslimiet
 from collections import deque
 from datetime import datetime, timedelta
@@ -32,12 +32,39 @@ from urllib.parse import quote
 import tkinter as tk
 from tkinter import messagebox
 import warnings
+# NIEUWE IMPORTS voor configuratie
+import configparser
+import os
 
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # --- CONFIGURATIE ---
-HOTKEY = 'F9'
+def load_config():
+    """Laad configuratie uit ini bestand of maak standaard aan"""
+    config = configparser.ConfigParser()
+    config_file = 'config.ini'
+
+    # Check of config bestand bestaat
+    if os.path.exists(config_file):
+        config.read(config_file)
+        hotkey = config.get('Settings', 'hotkey', fallback='f9')
+        print(f"[Config] Sneltoets geladen uit config.ini: '{hotkey}'")
+    else:
+        # Maak nieuw config bestand met standaard waarden
+        config['Settings'] = {
+            'hotkey': 'f9'
+        }
+        with open(config_file, 'w') as f:
+            config.write(f)
+        hotkey = 'f9'
+        print(f"[Config] Nieuw config.ini bestand aangemaakt met standaard sneltoets: 'f9'")
+        print(f"[Config] Pas het bestand aan om de sneltoets te wijzigen en herstart de tool")
+
+    return hotkey
+
+# Laad de configuratie
+HOTKEY = load_config()
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
@@ -230,7 +257,16 @@ def show_success_popup(word):
 
     try:
         # ICO-bestand in dezelfde map als het script
-        popup.iconbitmap("favicon.ico")
+        import sys
+        if hasattr(sys, '_MEIPASS'):
+            # Running als .exe
+            icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
+        else:
+            # Running als .py script
+            icon_path = "favicon.ico"
+
+        if os.path.exists(icon_path):
+            popup.iconbitmap(icon_path)
     except:
         pass  # Gebruik standaard icoon als bestand niet bestaat
 
@@ -281,7 +317,16 @@ def show_failure_popup(word, error_message=None):
 
     try:
         # ICO-bestand in dezelfde map als het script
-        dialog.iconbitmap("favicon.ico")
+        import sys
+        if hasattr(sys, '_MEIPASS'):
+            # Running als .exe
+            icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
+        else:
+            # Running als .py script
+            icon_path = "favicon.ico"
+
+        if os.path.exists(icon_path):
+            dialog.iconbitmap(icon_path)
     except:
         pass  # Gebruik standaard icoon als bestand niet bestaat
 
@@ -397,7 +442,7 @@ def perform_check():
 
         # Kopieer geselecteerde tekst
         keyboard.send('ctrl+c')
-        time.sleep(0.5)  # Langere wachttijd voor Word
+        time.sleep(0.2)  # Langere wachttijd voor Word
 
         # Haal nieuwe klembordinhoud op
         selected_word = pyperclip.paste().strip()
@@ -405,7 +450,7 @@ def perform_check():
         # Als klembord nog steeds leeg is, probeer alternatief
         if not selected_word:
             keyboard.send('ctrl+ins')  # Alternatieve kopieercombinatie
-            time.sleep(0.5)
+            time.sleep(0.2)
             selected_word = pyperclip.paste().strip()
 
         # Als klembord nog steeds leeg is, herstel origineel en stop
@@ -435,6 +480,7 @@ def main():
     print("--- Woordenlijst Checker ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
     print("Druk op 'Esc' om het script volledig te stoppen.")
+    print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
