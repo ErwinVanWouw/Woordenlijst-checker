@@ -13,7 +13,7 @@ Download the latest version under Releases or on the above website.
 
 ## Key Features
 - works in any Windows application
-- simply press F9 to activate
+- allows you to modify the default shortcut key F9
 - runs completely in the background
 - uses hardly any system resources
 - shows a verification window for 3 seconds if a word is found
