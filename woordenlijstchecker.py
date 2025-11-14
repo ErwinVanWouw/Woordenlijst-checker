@@ -1,8 +1,27 @@
-# Woordenlijst-checker v1.2.3 door Black Kite (blackkite.nl)
-# Gebruikslimiet
+# Woordenlijst-checker v1.2.4 door Black Kite (blackkite.nl)
+
+# Vereiste bibliotheken
+import time
+import requests
+import keyboard
+import pyperclip
+import threading
+import webbrowser
+from urllib.parse import quote
+import tkinter as tk
+from tkinter import messagebox
+import warnings
+import configparser
+import os
 from collections import deque
 from datetime import datetime, timedelta
+import re
+import sys
 
+# Onderdruk waarschuwingen
+warnings.filterwarnings("ignore", category=UserWarning)
+
+# --- GEBRUIKSLIMIET ---
 # Track laatste requests
 request_history = deque(maxlen=100)
 MAX_REQUESTS_PER_MINUTE = 30
@@ -16,28 +35,14 @@ def check_rate_limit():
     recent = sum(1 for t in request_history if now - t < timedelta(minutes=1))
 
     if recent > MAX_REQUESTS_PER_MINUTE:
-        print("[Waarschuwing] Te veel aanvragen, wacht even...")
-        time.sleep(5)
+        print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showwarning("Rate Limit", 
+                              "Maximum aantal controles bereikt.\nWacht even voordat u doorgaat.\n(Max. 30 controles per minuut)")
+        root.destroy()
         return False
     return True
-
-# Vereiste bibliotheken
-import requests
-import keyboard
-import pyperclip
-import time
-import threading
-import webbrowser
-from urllib.parse import quote
-import tkinter as tk
-from tkinter import messagebox
-import warnings
-# NIEUWE IMPORTS voor configuratie
-import configparser
-import os
-
-# Onderdruk waarschuwingen
-warnings.filterwarnings("ignore", category=UserWarning)
 
 # --- CONFIGURATIE ---
 def load_config():
@@ -45,26 +50,97 @@ def load_config():
     config = configparser.ConfigParser()
     config_file = 'config.ini'
 
-    # Check of config bestand bestaat
+    # Check of config-bestand bestaat
     if os.path.exists(config_file):
         config.read(config_file)
         hotkey = config.get('Settings', 'hotkey', fallback='f9')
-        print(f"[Config] Sneltoets geladen uit config.ini: '{hotkey}'")
+        # Laad opgeslagen sneltoets en pop-uppositie
+        popup_x = config.getint('Settings', 'popup_x', fallback=-1)
+        popup_y = config.getint('Settings', 'popup_y', fallback=-1)
+        print(f"[Config] Sneltoets geladen: '{hotkey}'")
+        if popup_x != -1 and popup_y != -1:
+            print(f"[Config] Pop-uppositie geladen: {popup_x}, {popup_y}")
     else:
-        # Maak nieuw config bestand met standaard waarden
+        # Maak nieuw configuratiebestand met standaardwaarden
         config['Settings'] = {
-            'hotkey': 'f9'
+            'hotkey': 'f9',
+            'popup_x': '-1',
+            'popup_y': '-1'
         }
         with open(config_file, 'w') as f:
             config.write(f)
         hotkey = 'f9'
+        popup_x = popup_y = -1
         print(f"[Config] Nieuw config.ini bestand aangemaakt met standaard sneltoets: 'f9'")
         print(f"[Config] Pas het bestand aan om de sneltoets te wijzigen en herstart de tool")
+        print(f"[Config] Pop-uppositie wordt onthouden na verslepen")
 
-    return hotkey
+    return hotkey, popup_x, popup_y, config_file
 
 # Laad de configuratie
-HOTKEY = load_config()
+HOTKEY, POPUP_X, POPUP_Y, CONFIG_FILE = load_config()
+
+def save_popup_position(x, y):
+    """Sla pop-uppositie op in configuratiebestand"""
+    global POPUP_X, POPUP_Y
+
+    # Update globale variabelen
+    POPUP_X = x
+    POPUP_Y = y
+
+    # Schrijf naar configuratiebestand
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+
+    if 'Settings' not in config:
+        config['Settings'] = {}
+
+    config['Settings']['popup_x'] = str(x)
+    config['Settings']['popup_y'] = str(y)
+
+    with open(CONFIG_FILE, 'w') as f:
+        config.write(f)
+
+def get_popup_position(width, height):
+    """Bepaal pop-uppositie met robuuste validatie"""
+    if POPUP_X == -1 or POPUP_Y == -1:
+        return get_center_position(width, height)
+
+    # Test of positie werkelijk zichtbaar is
+    try:
+        test = tk.Tk()
+        test.withdraw()
+        test.geometry(f"1x1+{POPUP_X}+{POPUP_Y}")
+        test.update()
+
+        # Check of window op gevraagde positie staat
+        actual_x = test.winfo_x()
+        actual_y = test.winfo_y()
+        test.destroy()
+
+        # Als Windows positie heeft aangepast (>100px verschil)
+        if abs(actual_x - POPUP_X) > 100 or abs(actual_y - POPUP_Y) > 100:
+            print("[Info] Opgeslagen positie niet bereikbaar, gebruik centrum")
+            return get_center_position(width, height)
+
+        return POPUP_X, POPUP_Y
+
+    except Exception as e:
+        print(f"[Waarschuwing] Kon pop-uppositie niet valideren: {e}")
+        return get_center_position(width, height)
+
+def get_center_position(width, height):
+    """Bereken centrumpositie van primaire monitor"""
+    try:
+        temp_root = tk.Tk()
+        temp_root.withdraw()
+        x = int(temp_root.winfo_screenwidth()/2 - width/2)
+        y = int(temp_root.winfo_screenheight()/2 - height/2)
+        temp_root.destroy()
+        return x, y
+    except Exception as e:
+        print(f"[Waarschuwing] Kon centrumpositie niet bepalen: {e}")
+        return 100, 100  # Fallback positie
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
@@ -74,7 +150,6 @@ def check_word_online(word):
         return False, word, None
 
     # Normaliseer alle typografische apostrofs naar rechte apostrof
-    import re
     word_normalized = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", word)
 
     # Als er een wijziging was, toon dit
@@ -198,8 +273,11 @@ def check_word_online(word):
             else:
                 return False, word, None
 
+    except requests.exceptions.RequestException as e:
+        print(f"[Fout] Netwerkfout bij API-aanroep: {e}")
+        return False, word, "Netwerkfout - controleer uw verbinding"
     except Exception as e:
-        print(f"[Fout] Er is een fout opgetreden: {e}")
+        print(f"[Fout] Onverwachte fout tijdens controle: {e}")
         return False, word, "Er is een fout opgetreden"
 
 def get_spelling_suggestions(word):
@@ -219,15 +297,12 @@ def get_spelling_suggestions(word):
 
         xml_content = response.text
 
-        # Parse suggesties
-        import re
-
         # Zoek naar corrections (meerdere suggesties gescheiden door |)
         corrections_match = re.search(r'<corrections>(.*?)</corrections>', xml_content)
         if corrections_match:
             corrections = corrections_match.group(1)
             if corrections:
-                # Split op | en maak het netjes
+                # Splits op | en maak het netjes
                 suggestions = [s.strip() for s in corrections.split('|')]
                 return ' / '.join(suggestions[:3])  # Max 3 suggesties
 
@@ -247,192 +322,222 @@ def get_spelling_suggestions(word):
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word):
     """Toon 3 seconden pop-up met groen vinkje"""
-    root = tk.Tk()
-    root.withdraw()
-
-    # Maak aangepast pop-upvenster
-    popup = tk.Toplevel(root)
-    popup.title("Gevonden")
-    popup.configure(bg='white')
-
     try:
-        # ICO-bestand in dezelfde map als het script
-        import sys
-        if hasattr(sys, '_MEIPASS'):
-            # Running als .exe
-            icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
-        else:
-            # Running als .py script
-            icon_path = "favicon.ico"
+        root = tk.Tk()
+        root.withdraw()
 
-        if os.path.exists(icon_path):
-            popup.iconbitmap(icon_path)
-    except:
-        pass  # Gebruik standaard icoon als bestand niet bestaat
+        # Maak aangepast pop-upvenster
+        popup = tk.Toplevel(root)
+        popup.title("Gevonden")
+        popup.configure(bg='white')
 
-    # Centreer het venster
-    popup.geometry("350x150+{}+{}".format(
-        int(popup.winfo_screenwidth()/2 - 175),
-        int(popup.winfo_screenheight()/2 - 75)
-    ))
+        try:
+            # ICO-bestand in dezelfde map als het script
+            if hasattr(sys, '_MEIPASS'):
+                # Running als .exe
+                icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
+            else:
+                # Running als .py script
+                icon_path = "favicon.ico"
 
-    # Geen resize en altijd bovenop
-    popup.resizable(False, False)
-    popup.attributes('-topmost', True)
+            if os.path.exists(icon_path):
+                popup.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"[Info] Kon icoon niet laden: {e}")
 
-    # Frame voor content
-    frame = tk.Frame(popup, bg='white')
-    frame.pack(expand=True, fill='both', padx=20, pady=20)
+        # Positioneer pop-up (opgeslagen positie of centrum)
+        x, y = get_popup_position(350, 150)
+        popup.geometry(f"350x150+{x}+{y}")
 
-    # Groen vinkje
-    check_label = tk.Label(frame, text="✓", font=("Arial", 48), fg='green', bg='white')
-    check_label.pack(side='left', padx=10)
+        # Geen resize en altijd bovenop
+        popup.resizable(False, False)
+        popup.attributes('-topmost', True)
 
-    # Tekst
-    text_label = tk.Label(frame, 
-                         text=f"'{word}'\nstaat in Woordenlijst.org", 
-                         font=("Arial", 12), 
-                         bg='white',
-                         justify='left')
-    text_label.pack(side='left', padx=10)
+        # Detecteer wanneer pop-up wordt verplaatst
+        def on_drag_end(event):
+            if event.widget == popup:
+                new_x = popup.winfo_x()
+                new_y = popup.winfo_y()
+                # Alleen opslaan als positie echt veranderd is (niet bij andere events)
+                if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
+                    save_popup_position(new_x, new_y)
+                    print(f"[Info] Nieuwe popup positie opgeslagen: {new_x}, {new_y}")
 
-    # Automatisch sluiten na 3 seconden
-    popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+        popup.bind('<Configure>', on_drag_end)
 
-    # Start de GUI-loop
-    popup.mainloop()
+        # Frame voor content
+        frame = tk.Frame(popup, bg='white')
+        frame.pack(expand=True, fill='both', padx=20, pady=20)
+
+        # Groen vinkje
+        check_label = tk.Label(frame, text="✓", font=("Arial", 48), fg='green', bg='white')
+        check_label.pack(side='left', padx=10)
+
+        # Tekst
+        text_label = tk.Label(frame, 
+                             text=f"'{word}'\nstaat in Woordenlijst.org", 
+                             font=("Arial", 12), 
+                             bg='white',
+                             justify='left')
+        text_label.pack(side='left', padx=10)
+
+        # Automatisch sluiten na 3 seconden
+        popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+
+        # Start de GUI-loop
+        popup.mainloop()
+
+    except Exception as e:
+        print(f"[Fout] Kon succespop-up niet tonen: {e}")
 
 def show_failure_popup(word, error_message=None):
     """Toon pop-up voor niet-gevonden woord met Ja/Nee-knoppen en klikbare suggesties"""
-    url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
-
-    root = tk.Tk()
-    root.withdraw()
-
-    # Custom dialog
-    dialog = tk.Toplevel(root)
-    dialog.title("Niet gevonden")
-    dialog.resizable(False, False)
-    dialog.attributes('-topmost', True)
-
     try:
-        # ICO-bestand in dezelfde map als het script
-        import sys
-        if hasattr(sys, '_MEIPASS'):
-            # Running als .exe
-            icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
-        else:
-            # Running als .py script
-            icon_path = "favicon.ico"
+        url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
 
-        if os.path.exists(icon_path):
-            dialog.iconbitmap(icon_path)
-    except:
-        pass  # Gebruik standaard icoon als bestand niet bestaat
+        root = tk.Tk()
+        root.withdraw()
 
-    # Bepaal hoogte op basis van inhoud
-    base_height = 180  # Basishoogte voor titel, knoppen en footer
+        # Custom dialog
+        dialog = tk.Toplevel(root)
+        dialog.title("Niet gevonden")
+        dialog.resizable(False, False)
+        dialog.attributes('-topmost', True)
 
-    # Check of er suggesties zijn
-    has_suggestions = error_message and error_message.startswith("Bedoelde u:")
-    if has_suggestions:
-        # Tel aantal suggesties
-        suggestions_text = error_message.replace("Bedoelde u:", "").strip()
-        suggestions = [s.strip() for s in suggestions_text.split('/')]
-        num_suggestions = min(len(suggestions), 3)  # Max 3
-        # Voeg 30 pixels per suggestie toe + 30 voor label "Bedoelde u:"
-        extra_height = 30 + (num_suggestions * 30)
-    elif error_message:
-        # Voor normale foutmelding zoals "Gebruik 'pH'"
-        extra_height = 30
-    else:
-        # Bij geen foutmelding
-        extra_height = 0
+        try:
+            # ICO-bestand in dezelfde map als het script
+            if hasattr(sys, '_MEIPASS'):
+                # Running als .exe
+                icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
+            else:
+                # Running als .py script
+                icon_path = "favicon.ico"
 
-    total_height = base_height + extra_height
+            if os.path.exists(icon_path):
+                dialog.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"[Info] Kon icoon niet laden: {e}")
 
-    # Stel geometrie in met dynamische hoogte
-    dialog.geometry("450x{}+{}+{}".format(
-        total_height,
-        int(dialog.winfo_screenwidth()/2 - 225),
-        int(dialog.winfo_screenheight()/2 - total_height//2)
-    ))
+        # Bepaal hoogte op basis van inhoud
+        base_height = 180  # Basishoogte voor titel, knoppen en footer
 
-    # Hoofdtekst
-    main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
-    tk.Label(dialog, text=main_text, pady=10).pack()
-
-    # Suggesties of foutmelding
-    if error_message:
-        # Check of het suggesties zijn (begint met "Bedoelde u:")
-        if error_message.startswith("Bedoelde u:"):
-            # Toon label "Bedoelde u:"
-            tk.Label(dialog, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(pady=(5, 2))
-
-            # Frame voor suggestielinks
-            suggestions_frame = tk.Frame(dialog)
-            suggestions_frame.pack(pady=5)
-
-            # Haal suggesties uit de foutmelding
+        # Check of er suggesties zijn
+        has_suggestions = error_message and error_message.startswith("Bedoelde u:")
+        if has_suggestions:
+            # Tel aantal suggesties
             suggestions_text = error_message.replace("Bedoelde u:", "").strip()
             suggestions = [s.strip() for s in suggestions_text.split('/')]
-
-            # Maak klikbare links voor elke suggestie
-            for suggestion in suggestions[:3]:  # Max 3 suggesties
-                link = tk.Label(
-                    suggestions_frame,
-                    text=suggestion,
-                    fg="blue",
-                    cursor="hand2",
-                    font=("Arial", 10, "underline")
-                )
-                link.pack(pady=2)
-                # Open direct de website met deze suggestie
-                link.bind("<Button-1>", lambda e, s=suggestion: webbrowser.open_new_tab(
-                    f"https://woordenlijst.org/zoeken/?q={quote(s)}"
-                ))
+            num_suggestions = min(len(suggestions), 3)  # Max 3
+            # Voeg 30 pixels per suggestie toe + 30 voor label "Bedoelde u:"
+            extra_height = 30 + (num_suggestions * 30)
+        elif error_message:
+            # Voor normale foutmelding zoals "Gebruik 'pH'"
+            extra_height = 30
         else:
-            # Normale foutmelding (zoals "Gebruik 'pH'")
-            tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
+            # Bij geen foutmelding
+            extra_height = 0
 
-    # Vraag om website te openen
-    tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
+        total_height = base_height + extra_height
 
-    # Buttonsframe
-    button_frame = tk.Frame(dialog)
-    button_frame.pack(pady=10)
+        # Positioneer pop-up (opgeslagen positie of centrum)
+        x, y = get_popup_position(450, total_height)
+        dialog.geometry(f"450x{total_height}+{x}+{y}")
 
-    def yes_action():
-        webbrowser.open_new_tab(url_to_open)
-        dialog.destroy()
-        root.destroy()
+        # Detecteer wanneer pop-up wordt verplaatst
+        def on_drag_end(event):
+            if event.widget == dialog:
+                new_x = dialog.winfo_x()
+                new_y = dialog.winfo_y()
+                # Alleen opslaan als positie echt veranderd is
+                if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
+                    save_popup_position(new_x, new_y)
+                    print(f"[Info] Nieuwe pop-uppositie opgeslagen: {new_x}, {new_y}")
 
-    def no_action():
-        dialog.destroy()
-        root.destroy()
+        dialog.bind('<Configure>', on_drag_end)
 
-    tk.Button(button_frame, text="Ja", command=yes_action, width=8).pack(side='left', padx=5)
-    tk.Button(button_frame, text="Nee", command=no_action, width=8).pack(side='left', padx=5)
+        # Hoofdtekst
+        main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
+        tk.Label(dialog, text=main_text, pady=10).pack()
 
-    # Footercredit
-    tk.Label(dialog, 
-             text="blackkite.nl", 
-             fg='#808080', 
-             font=('Arial', 7),
-             anchor='w').pack(side='bottom', anchor='w', padx=10, pady=2)
+        # Suggesties of foutmelding
+        if error_message:
+            # Check of het suggesties zijn (begint met "Bedoelde u:")
+            if error_message.startswith("Bedoelde u:"):
+                # Toon label "Bedoelde u:"
+                tk.Label(dialog, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(pady=(5, 2))
 
-    # Focus op Ja-knop
-    button_frame.winfo_children()[0].focus()
+                # Frame voor suggestielinks
+                suggestions_frame = tk.Frame(dialog)
+                suggestions_frame.pack(pady=5)
 
-    # Enter = Ja, Escape = Nee
-    dialog.bind('<Return>', lambda e: yes_action())
-    dialog.bind('<Escape>', lambda e: no_action())
+                # Haal suggesties uit de foutmelding
+                suggestions_text = error_message.replace("Bedoelde u:", "").strip()
+                suggestions = [s.strip() for s in suggestions_text.split('/')]
 
-    dialog.mainloop()
-    
+                def open_suggestion_and_close(suggestion):
+                    """Open suggestielink en sluit pop-up"""
+                    webbrowser.open_new_tab(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
+                    dialog.destroy()
+                    root.destroy()
+
+                for suggestion in suggestions[:3]:
+                    link = tk.Label(
+                        suggestions_frame,
+                        text=suggestion,
+                        fg="blue",
+                        cursor="hand2",
+                        font=("Arial", 10, "underline")
+                    )
+                    link.pack(pady=2)
+                    link.bind("<Button-1>", lambda e, s=suggestion: open_suggestion_and_close(s))
+            else:
+                # Normale foutmelding (zoals "Gebruik 'pH'")
+                tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
+
+        # Vraag om website te openen
+        tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
+
+        # Buttonsframe
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=10)
+
+        def yes_action():
+            webbrowser.open_new_tab(url_to_open)
+            dialog.destroy()
+            root.destroy()
+
+        def no_action():
+            dialog.destroy()
+            root.destroy()
+
+        yes_button = tk.Button(button_frame, text="Ja", command=yes_action, width=8)
+        yes_button.pack(side='left', padx=5)
+
+        # Maak Nee de default button
+        no_button = tk.Button(button_frame, text="Nee", command=no_action, width=8, default='active')
+        no_button.pack(side='left', padx=5)
+
+        # Focus
+        dialog.after(100, lambda: no_button.focus_force())  # Kleine delay voor zekerheid
+
+        # Bindings
+        no_button.bind('<Return>', lambda e: no_action())
+        yes_button.bind('<Return>', lambda e: yes_action())
+        dialog.bind('<Escape>', lambda e: no_action())
+
+        dialog.mainloop()
+
+    except Exception as e:
+        print(f"[Fout] Kon foutpop-up niet tonen: {e}")
+
 # --- ACTIE DIE WORDT UITGEVOERD BIJ INDRUKKEN SNELTOETS ---
 def perform_check():
     """De volledige actie: kopieer, lees klembord, start de controle en geef feedback."""
+
+    # CONTROLEER VERBRUIKSLIMIET VOORAF
+    if not check_rate_limit():
+        return
+
     try:
         # Bewaar huidige klembordinhoud
         original_clipboard = pyperclip.paste()
@@ -442,7 +547,7 @@ def perform_check():
 
         # Kopieer geselecteerde tekst
         keyboard.send('ctrl+c')
-        time.sleep(0.2)  # Langere wachttijd voor Word
+        time.sleep(0.1)  # Langere wachttijd voor Word
 
         # Haal nieuwe klembordinhoud op
         selected_word = pyperclip.paste().strip()
@@ -458,11 +563,9 @@ def perform_check():
             pyperclip.copy(original_clipboard)
             print("[Waarschuwing] Geen tekst geselecteerd of kopiëren mislukt")
             return
-
     except Exception as e:
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
-
     # Voer de online check uit (nu met 3 returnwaarden)
     is_valid, checked_word, error_message = check_word_online(selected_word)
 
@@ -479,7 +582,7 @@ def perform_check():
 def main():
     print("--- Woordenlijst Checker ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
-    print("Druk op 'Esc' om het script volledig te stoppen.")
+    print("Druk op 'Esc' om het script te stoppen.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
 
