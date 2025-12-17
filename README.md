@@ -11,7 +11,7 @@ Website official Dutch spelling database: https://woordenlijst.org/
 Website Woordenlijst-checker tool: https://www.blackkite.nl/nieuws/woordenlijst-checker.php
 
 ## Installation
-Download the latest package under [Releases](releases/latest) and run the program. This has the Python application and all its dependencies bundled into a single package. If Python is installed on your machine, simply download the Python file and run it.
+Download the latest package under [Releases](../../releases/) and run the program. This has the Python application and all its dependencies bundled into a single package. If Python is installed on your machine, simply download the Python file and run it.
 
 ## Key Features
 - works in any Windows application
