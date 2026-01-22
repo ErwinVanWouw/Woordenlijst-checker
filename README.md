@@ -17,10 +17,9 @@ Download the latest package under [Releases](../../releases/) and run the progra
 - works in any Windows application
 - allows you to modify the default shortcut key F9
 - multi-monitor support
-- runs completely in the background
-- uses hardly any system resources
 - shows a verification window for 3 seconds if a word is found
 - option to open Woordenlijst.org if a word is not listed
+- automatically shows the correct article (de/het) for Dutch nouns
 
 ## How to Use
 Select the word you want to look up (Ctrl+Shift+Left/Right Arrow). Press F9 and look at your screen.  
