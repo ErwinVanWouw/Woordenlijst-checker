@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.2.4 door Black Kite (blackkite.nl)
+# Woordenlijst-checker v1.2.6 door Black Kite (blackkite.nl)
 
 # Vereiste bibliotheken
 import time
@@ -38,7 +38,7 @@ def check_rate_limit():
         print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
         root = tk.Tk()
         root.withdraw()
-        messagebox.showwarning("Rate Limit", 
+        messagebox.showwarning("Rate Limit",
                               "Maximum aantal controles bereikt.\nWacht even voordat u doorgaat.\n(Max. 30 controles per minuut)")
         root.destroy()
         return False
@@ -144,10 +144,10 @@ def get_center_position(width, height):
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
-    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message)"""
+    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article)"""
     if not word or not word.strip():
         print("[Info] Klembord is leeg, actie geannuleerd.")
-        return False, word, None
+        return False, word, None, None
 
     # Normaliseer alle typografische apostrofs naar rechte apostrof
     word_normalized = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", word)
@@ -182,14 +182,73 @@ def check_word_online(word):
             wordforms = re.findall(r'<wordform>(.*?)</wordform>', xml_content)
             lemmas = [l for l in re.findall(r'<lemma>(.*?)</lemma>', xml_content) if l]
 
+            # LIDWOORDEXTRACTIE - gebaseerd op part_of_speech
+            articles = set()
+
+            # Check of het gezochte woord in de paradigm staat met een "meervoud" label
+            is_plural = False
+            paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
+            for block in paradigm_blocks:
+                if '<wordform>' + word_normalized + '</wordform>' in block:
+                    if '<label>meervoud</label>' in block:
+                        is_plural = True
+                        break
+
+            # Als het een meervoud is, is het lidwoord altijd "de"
+            if is_plural:
+                article = 'de'
+                print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+            else:
+                # Voor enkelvoud: verzamel alle genders van de relevante lemma's
+                for lemma in lemmas:
+                    # Skip lemma's die niet exact overeenkomen (behalve hoofdletters)
+                    if lemma.lower() != word_normalized.lower():
+                        continue
+
+                    # Zoek gender in lemma_part_of_speech
+                    pos_pattern = r'<lemma>' + re.escape(lemma) + r'</lemma>.*?<lemma_part_of_speech>.*?gender=([^,\)]+)'
+                    pos_matches = re.findall(pos_pattern, xml_content, re.DOTALL)
+
+                    for gender in pos_matches:
+                        # Verwerk alle mogelijke gendercombinaties
+                        if 'n' in gender:  # neuter (onzijdig)
+                            articles.add('het')
+                        if any(x in gender for x in ['m', 'f', 'c']):  # mannelijk, vrouwelijk of common
+                            articles.add('de')
+
+                if not articles:
+                    for lemma in lemmas:
+                        pos_pattern = r'<lemma>' + re.escape(lemma) + r'</lemma>.*?<lemma_part_of_speech>.*?gender=([^,\)]+)'
+                        pos_match = re.search(pos_pattern, xml_content, re.DOTALL)
+                        if pos_match:
+                            gender = pos_match.group(1)
+                            if 'n' in gender:
+                                articles.add('het')
+                            if any(x in gender for x in ['m', 'f', 'c']):
+                                articles.add('de')
+
+                # Format enkelvoud lidwoorden
+                if len(articles) == 1:
+                    article = articles.pop()
+                elif len(articles) > 1:
+                    article = "/".join(sorted(articles))
+                else:
+                    article = None
+
+            # Finale output
+            if article:
+                print(f"[Info] Lidwoord: {article}")
+            else:
+                print("[Info] Geen lidwoord gevonden")
+
             # NIEUWE CHECK: is het ingevoerde woord zelf een lemma?
             if word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
-                return True, word, None
+                return True, word, None, article
 
             # CHECK 1: zijn er lemma's met interne hoofdletters?
             has_internal_caps_lemma = any(
-                any(c.isupper() for c in lemma[1:]) 
+                any(c.isupper() for c in lemma[1:])
                 for lemma in lemmas
             )
 
@@ -218,17 +277,17 @@ def check_word_online(word):
 
                         if exact_match:
                             print(f"[Resultaat] '{word}' is GEVONDEN.")
-                            return True, word, None
+                            return True, word, None, article
 
                 # Niet goedgekeurd - geef feedback
                 relevant_lemmas = [l for l in lemmas if any(c.isupper() for c in l[1:])]
                 if relevant_lemmas:
                     error_msg = f"Gebruik '{relevant_lemmas[0]}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg
+                    return False, word, error_msg, None
                 else:
                     print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-                    return False, word, "Controleer de spelling"
+                    return False, word, "Controleer de spelling", None
 
             # CHECK 2: hoofdlettergevoelige woorden (pH, mkb, etc.)
             for lemma in lemmas:
@@ -241,25 +300,25 @@ def check_word_online(word):
 
                     error_msg = f"Gebruik '{lemma}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg
+                    return False, word, error_msg, None
 
             # UITZONDERING: enkelvoudig woord met alleen eerste hoofdletter (Fiets)
-            if (len(word_normalized) > 1 and 
-                word_normalized[0].isupper() and 
-                word_normalized[1:].islower() and 
+            if (len(word_normalized) > 1 and
+                word_normalized[0].isupper() and
+                word_normalized[1:].islower() and
                 ' ' not in word_normalized): # Enkelvoudige woorden
 
                 if word_normalized.lower() in wordforms or word_normalized.lower() in lemmas:
                     print(f"[Resultaat] '{word}' is GEVONDEN (hoofdletter toegestaan).")
-                    return True, word, None
+                    return True, word, None, article
 
             # NORMALE MODUS: geen speciale hoofdletters, accepteer wordforms
             if word_normalized in wordforms or word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN.")
-                return True, word, None
+                return True, word, None, article
 
             print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-            return False, word, "Controleer de spelling"
+            return False, word, "Controleer de spelling", None
         else:
             # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
@@ -269,16 +328,16 @@ def check_word_online(word):
 
             if suggestions:
                 error_msg = f"Bedoelde u: {suggestions}"
-                return False, word, error_msg
+                return False, word, error_msg, None
             else:
-                return False, word, None
+                return False, word, None, None
 
     except requests.exceptions.RequestException as e:
         print(f"[Fout] Netwerkfout bij API-aanroep: {e}")
-        return False, word, "Netwerkfout - controleer uw verbinding"
+        return False, word, "Netwerkfout - controleer uw verbinding", None
     except Exception as e:
         print(f"[Fout] Onverwachte fout tijdens controle: {e}")
-        return False, word, "Er is een fout opgetreden"
+        return False, word, "Er is een fout opgetreden", None
 
 def get_spelling_suggestions(word):
     """Haal spellingsuggesties op via de spellcheck API"""
@@ -320,8 +379,8 @@ def get_spelling_suggestions(word):
         return None
 
 # --- NOTIFICATIE FUNCTIES ---
-def show_success_popup(word):
-    """Toon 3 seconden pop-up met groen vinkje"""
+def show_success_popup(word, article=None):
+    """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord"""
     try:
         root = tk.Tk()
         root.withdraw()
@@ -345,9 +404,22 @@ def show_success_popup(word):
         except Exception as e:
             print(f"[Info] Kon icoon niet laden: {e}")
 
+        # Bereken benodigde breedte op basis van tekstlengte
+        if article:
+            display_text = f"'{word}' ({article})"
+        else:
+            display_text = f"'{word}'"
+
+        # Schat de benodigde breedte (ongeveer 8 pixels per karakter + marges)
+        estimated_width = len(display_text) * 8 + 200  # 200 voor vinkje en marges
+        min_width = 350
+        max_width = 600
+        popup_width = max(min_width, min(estimated_width, max_width))
+        popup_height = 150
+
         # Positioneer pop-up (opgeslagen positie of centrum)
-        x, y = get_popup_position(350, 150)
-        popup.geometry(f"350x150+{x}+{y}")
+        x, y = get_popup_position(popup_width, popup_height)
+        popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
         # Geen resize en altijd bovenop
         popup.resizable(False, False)
@@ -373,10 +445,12 @@ def show_success_popup(word):
         check_label = tk.Label(frame, text="✓", font=("Arial", 48), fg='green', bg='white')
         check_label.pack(side='left', padx=10)
 
-        # Tekst
-        text_label = tk.Label(frame, 
-                             text=f"'{word}'\nstaat in Woordenlijst.org", 
-                             font=("Arial", 12), 
+        # Tekst met optioneel lidwoord
+        full_display_text = display_text + "\nstaat in Woordenlijst.org"
+
+        text_label = tk.Label(frame,
+                             text=full_display_text,
+                             font=("Arial", 12),
                              bg='white',
                              justify='left')
         text_label.pack(side='left', padx=10)
@@ -566,13 +640,13 @@ def perform_check():
     except Exception as e:
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
-    # Voer de online check uit (nu met 3 returnwaarden)
-    is_valid, checked_word, error_message = check_word_online(selected_word)
+    # Voer de online check uit (nu met 4 returnwaarden)
+    is_valid, checked_word, error_message, article = check_word_online(selected_word)
 
     # Geef feedback op basis van het resultaat
     if is_valid:
-        # Toon pop-up met groen vinkje
-        show_success_popup(checked_word)
+        # Toon pop-up met groen vinkje en optioneel lidwoord
+        show_success_popup(checked_word, article)
     else:
         # Toon pop-up met Ja/Nee-opties en specifieke foutmelding
         if checked_word:
@@ -580,7 +654,7 @@ def perform_check():
 
 # --- HOOFDFUNCTIE ---
 def main():
-    print("--- Woordenlijst Checker ---")
+    print("--- Woordenlijstchecker v1.2.6 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
     print("Druk op 'Esc' om het script te stoppen.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
