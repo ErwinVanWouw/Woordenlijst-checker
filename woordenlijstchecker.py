@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.2.7 door Black Kite (blackkite.nl)
+# Woordenlijst-checker v1.2.8 door Black Kite (blackkite.nl)
 
 # Vereiste bibliotheken
 import time
@@ -144,10 +144,10 @@ def get_center_position(width, height):
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
-    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article)"""
+    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article, word_info, gender, gender_info_list)"""
     if not word or not word.strip():
         print("[Info] Klembord is leeg, actie geannuleerd.")
-        return False, word, None, None
+        return False, word, None, None, None, None, None
 
     # Normaliseer alle typografische apostrofs naar rechte apostrof
     word_normalized = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", word)
@@ -195,24 +195,126 @@ def check_word_online(word):
                 is_verb = True
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
 
-            # Check of het een meervoudsvorm is
-            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-            if re.search(plural_pattern, xml_content, re.DOTALL):
-                word_types.add('meervoud')
-                is_plural_noun = True
-                print(f"[Info] Meervoudsvorm gedetecteerd: {word_normalized}")
+            # LIDWOORDEXTRACTIE - gebaseerd op part_of_speech
+            articles = set()
+            gender_info_list = []  # lijst van dicts met article/gender combinaties
+            gender = None
 
-                # Zoek naar het zelfstandig naamwoord waar dit meervoud bij hoort
+            # Check of het gezochte woord ALLEEN als meervoud voorkomt
+            is_plural = False
+            is_also_singular = False
+
+            paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
+            for block in paradigm_blocks:
+                if '<wordform>' + word_normalized + '</wordform>' in block:
+                    if '<label>meervoud</label>' in block:
+                        is_plural = True
+                    if '<label>enkelvoud</label>' in block:
+                        is_also_singular = True
+
+            # Het is alleen een meervoud als het niet ook als enkelvoud voorkomt
+            if is_plural and not is_also_singular:
+                is_plural_noun = True  # Voor de word_info
+                article = 'de'
+                gender = None
+                gender_info_list = None
+                print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+
+                # Zoek het enkelvoud lemma
                 noun_pattern = r'<lemma>(.*?)</lemma>.*?<label>zelfstandig naamwoord.*?</label>.*?<paradigm>.*?<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
                 noun_match = re.search(noun_pattern, xml_content, re.DOTALL)
                 if noun_match:
                     noun_lemma = noun_match.group(1)
-                    print(f"[Info] Meervoud van: {noun_lemma}")
                 else:
                     # Alternatief: zoek gewoon naar een zelfstandig naamwoord lemma
                     noun_lemmas = re.findall(r'<lemma>(.*?)</lemma>.*?<label>zelfstandig naamwoord', xml_content, re.DOTALL)
                     if noun_lemmas and noun_lemmas[0] != word_normalized:
                         noun_lemma = noun_lemmas[0]
+            else:
+                # Voor enkelvoud: verzamel genders per lemma voorkomen
+                lemma_entries = []
+
+                # Verzamel unieke lemma's
+                seen_combinations = set()
+                matching_lemmas = []
+
+                for l in lemmas:
+                    if l.lower() == word_normalized.lower():
+                        # Voor elk uniek lemma, voeg het maar één keer toe
+                        if l not in matching_lemmas:
+                            matching_lemmas.append(l)
+
+                # Vind voor elk matchend lemma de gender info
+                for lemma in matching_lemmas:
+                    # Zoek ALLE gevallen van dit lemma met gender info
+                    pattern = r'<lemma>' + re.escape(lemma) + r'</lemma>.*?<lemma_id>\d+</lemma_id>.*?<lemma_part_of_speech>.*?gender=([^,\)]+)'
+                    matches = re.findall(pattern, xml_content, re.DOTALL)
+
+                    for gender_raw in matches:
+                        entry_articles = set()
+                        entry_genders = set()
+
+                        # Parse de gender string (kan m, f, n, m/f, m/n, etc. zijn)
+                        if 'n' in gender_raw:
+                            entry_articles.add('het')
+                            entry_genders.add('o')
+                        if 'm' in gender_raw:
+                            entry_articles.add('de')
+                            entry_genders.add('m')
+                        if 'f' in gender_raw:
+                            entry_articles.add('de')
+                            entry_genders.add('v')
+                        if 'c' in gender_raw:  # common gender
+                            entry_articles.add('de')
+                            entry_genders.add('m/v')
+
+                        # Maak article- en gender-strings
+                        if entry_articles:
+                            art_str = "/".join(sorted(entry_articles))
+
+                            # Speciale gender formatting
+                            if 'm' in entry_genders and 'v' in entry_genders and 'm/v' not in entry_genders:
+                                gen_str = 'm/v'
+                            elif 'm' in entry_genders and 'o' in entry_genders:
+                                gen_str = 'm/o'
+                            elif 'v' in entry_genders and 'o' in entry_genders:
+                                gen_str = 'v/o'
+                            else:
+                                gen_str = "/".join(sorted(entry_genders))
+
+                            # Voeg toe aan lijst met het ORIGINELE lemma (met hoofdletters)
+                            entry = {'lemma': lemma, 'article': art_str, 'gender': gen_str}
+
+                            # Check of deze exact combinatie nog niet bestaat
+                            duplicate = False
+                            for existing in lemma_entries:
+                                if (existing['lemma'] == lemma and 
+                                    existing['article'] == art_str and 
+                                    existing['gender'] == gen_str):
+                                    duplicate = True
+                                    break
+
+                            if not duplicate:
+                                lemma_entries.append(entry)
+                                articles.update(entry_articles)  # Voor backward compatibility
+
+                # Verwerk de resultaten
+                if lemma_entries:
+                    # Als er maar één unieke combinatie is
+                    if len(lemma_entries) == 1:
+                        article = lemma_entries[0]['article']
+                        gender = lemma_entries[0]['gender']
+                        gender_info_list = None  # Geen lijst nodig voor enkelvoudige entry
+                    else:
+                        # Meerdere combinaties (homoniemen)
+                        gender_info_list = lemma_entries
+                        # Voor backward compatibility, combineer alle articles
+                        article = "/".join(sorted(articles))
+                        gender = None  # Geen enkele gender, want we hebben een lijst
+                else:
+                    article = None
+                    gender = None
+                    gender_info_list = None
 
             # Maak word_info dictionary voor complexe gevallen
             word_info = None
@@ -225,70 +327,31 @@ def check_word_online(word):
                     'article': 'de'  # Meervoud is altijd 'de'
                 }
                 print(f"[Info] Ambigue woord: zowel werkwoord als meervoud zelfstandig naamwoord")
-                
-            # LIDWOORDEXTRACTIE - gebaseerd op part_of_speech
-            articles = set()
 
-            # Check of het gezochte woord in de paradigm staat met een "meervoud" label
-            is_plural = False
-            paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
-            for block in paradigm_blocks:
-                if '<wordform>' + word_normalized + '</wordform>' in block:
-                    if '<label>meervoud</label>' in block:
-                        is_plural = True
-                        break
-
-            # Als het een meervoud is, is het lidwoord altijd "de"
-            if is_plural:
-                article = 'de'
-                print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
-            else:
-                # Voor enkelvoud: verzamel alle genders van de relevante lemma's
-                for lemma in lemmas:
-                    # Skip lemma's die niet exact overeenkomen (behalve hoofdletters)
-                    if lemma.lower() != word_normalized.lower():
-                        continue
-
-                    # Zoek gender in lemma_part_of_speech
-                    pos_pattern = r'<lemma>' + re.escape(lemma) + r'</lemma>.*?<lemma_part_of_speech>.*?gender=([^,\)]+)'
-                    pos_matches = re.findall(pos_pattern, xml_content, re.DOTALL)
-
-                    for gender in pos_matches:
-                        # Verwerk alle mogelijke gendercombinaties
-                        if 'n' in gender:  # neuter (onzijdig)
-                            articles.add('het')
-                        if any(x in gender for x in ['m', 'f', 'c']):  # mannelijk, vrouwelijk of common
-                            articles.add('de')
-
-                if not articles:
-                    for lemma in lemmas:
-                        pos_pattern = r'<lemma>' + re.escape(lemma) + r'</lemma>.*?<lemma_part_of_speech>.*?gender=([^,\)]+)'
-                        pos_match = re.search(pos_pattern, xml_content, re.DOTALL)
-                        if pos_match:
-                            gender = pos_match.group(1)
-                            if 'n' in gender:
-                                articles.add('het')
-                            if any(x in gender for x in ['m', 'f', 'c']):
-                                articles.add('de')
-
-                # Format enkelvoud lidwoorden
-                if len(articles) == 1:
-                    article = articles.pop()
-                elif len(articles) > 1:
-                    article = "/".join(sorted(articles))
+            # Update word_info met gender info
+            if word_info:
+                if gender_info_list:
+                    word_info['gender_info_list'] = gender_info_list
                 else:
-                    article = None
+                    word_info['gender'] = gender
 
             # Finale output
-            if article:
-                print(f"[Info] Lidwoord: {article}")
+            if gender_info_list:
+                print(f"[Info] Homoniemen gevonden: {len(gender_info_list)} varianten")
+                for info in gender_info_list:
+                    print(f"  - {info['article']} ({info['gender']})")
+            elif article:
+                if gender:
+                    print(f"[Info] Lidwoord: {article} ({gender})")
+                else:
+                    print(f"[Info] Lidwoord: {article}")
             else:
                 print("[Info] Geen lidwoord gevonden")
 
             # NIEUWE CHECK: is het ingevoerde woord zelf een lemma?
             if word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
-                return True, word, None, article, word_info
+                return True, word, None, article, word_info, gender, gender_info_list
 
             # CHECK 1: zijn er lemma's met interne hoofdletters?
             has_internal_caps_lemma = any(
@@ -321,17 +384,17 @@ def check_word_online(word):
 
                         if exact_match:
                             print(f"[Resultaat] '{word}' is GEVONDEN.")
-                            return True, word, None, article, word_info
+                            return True, word, None, article, word_info, gender, gender_info_list
 
                 # Niet goedgekeurd - geef feedback
                 relevant_lemmas = [l for l in lemmas if any(c.isupper() for c in l[1:])]
                 if relevant_lemmas:
                     error_msg = f"Gebruik '{relevant_lemmas[0]}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg, None, None
+                    return False, word, error_msg, None, None, None, None
                 else:
                     print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-                    return False, word, "Controleer de spelling", None
+                    return False, word, "Controleer de spelling", None, None, None, None
 
             # CHECK 2: hoofdlettergevoelige woorden (pH, mkb, etc.)
             for lemma in lemmas:
@@ -344,7 +407,7 @@ def check_word_online(word):
 
                     error_msg = f"Gebruik '{lemma}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg, None, None
+                    return False, word, error_msg, None, None, None, None
 
             # UITZONDERING: enkelvoudig woord met alleen eerste hoofdletter (Fiets)
             if (len(word_normalized) > 1 and
@@ -354,15 +417,15 @@ def check_word_online(word):
 
                 if word_normalized.lower() in wordforms or word_normalized.lower() in lemmas:
                     print(f"[Resultaat] '{word}' is GEVONDEN (hoofdletter toegestaan).")
-                    return True, word, None, article, word_info
+                    return True, word, None, article, word_info, gender, gender_info_list
 
             # NORMALE MODUS: geen speciale hoofdletters, accepteer wordforms
             if word_normalized in wordforms or word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN.")
-                return True, word, None, article, word_info
+                return True, word, None, article, word_info, gender, gender_info_list
 
             print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-            return False, word, "Controleer de spelling", None
+            return False, word, "Controleer de spelling", None, None, None, None
         else:
             # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
@@ -372,16 +435,16 @@ def check_word_online(word):
 
             if suggestions:
                 error_msg = f"Bedoelde u: {suggestions}"
-                return False, word, error_msg, None, None
+                return False, word, error_msg, None, None, None, None
             else:
-                return False, word, None, None
+                return False, word, None, None, None, None, None
 
     except requests.exceptions.RequestException as e:
         print(f"[Fout] Netwerkfout bij API-aanroep: {e}")
-        return False, word, "Netwerkfout - controleer uw verbinding", None
+        return False, word, "Netwerkfout - controleer uw verbinding", None, None, None, None
     except Exception as e:
         print(f"[Fout] Onverwachte fout tijdens controle: {e}")
-        return False, word, "Er is een fout opgetreden", None
+        return False, word, "Er is een fout opgetreden", None, None, None, None
 
 def get_spelling_suggestions(word):
     """Haal spellingsuggesties op via de spellcheck API"""
@@ -423,8 +486,8 @@ def get_spelling_suggestions(word):
         return None
 
 # --- NOTIFICATIE FUNCTIES ---
-def show_success_popup(word, article=None, word_info=None):
-    """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord"""
+def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
+    """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
     try:
         root = tk.Tk()
         root.withdraw()
@@ -449,16 +512,35 @@ def show_success_popup(word, article=None, word_info=None):
             print(f"[Info] Kon icoon niet laden: {e}")
 
         # Bepaal de displaytekst en pop-upgrootte
-        if word_info and word_info.get('is_ambiguous'):
+        if gender_info_list and len(gender_info_list) > 1:
+            # HOMONIEMEN - meerdere regels
+            display_lines = []
+            for info in gender_info_list:
+                # Gebruik het lemma uit de info indien beschikbaar, anders word
+                display_word = info.get('lemma', word)
+                display_lines.append(f"'{display_word}' {info['article']} ({info['gender']})")
+            display_text = "\n".join(display_lines) + "\n\nstaat in Woordenlijst.org"
+            popup_height = 150 + (len(gender_info_list) - 1) * 25 + 10
+
+        elif word_info and word_info.get('is_ambiguous'):
             # Ambigue woord (werkwoord + meervoud)
-            display_text = f"'{word}' ({word_info['article']})\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
-            popup_height = 180
+            if gender:
+                display_text = f"'{word}' {article} ({gender})\n\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
+            else:
+                display_text = f"'{word}' ({article})\n\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
+            popup_height = 190
+
         elif article:
-            display_text = f"'{word}' ({article})\nstaat in Woordenlijst.org"
-            popup_height = 150
+            # Normale woorden met lidwoord en mogelijk gender (inclusief meervouden)
+            if gender:
+                display_text = f"'{word}' {article} ({gender})\n\nstaat in Woordenlijst.org"
+            else:
+                display_text = f"'{word}' ({article})\n\nstaat in Woordenlijst.org"
+            popup_height = 160
+
         else:
-            display_text = f"'{word}'\nstaat in Woordenlijst.org"
-            popup_height = 150
+            display_text = f"'{word}'\n\nstaat in Woordenlijst.org"
+            popup_height = 160
 
         # Bereken benodigde breedte op basis van tekstlengte
         estimated_width = max(len(line) for line in display_text.split('\n')) * 8 + 200
@@ -494,15 +576,50 @@ def show_success_popup(word, article=None, word_info=None):
         check_label = tk.Label(frame, text="✓", font=("Arial", 48), fg='green', bg='white')
         check_label.pack(side='left', padx=10)
 
-        # Tekst met optioneel lidwoord
-        full_display_text = display_text + "\nstaat in Woordenlijst.org"
+        # Opmaak voor homoniemen
+        if gender_info_list and len(gender_info_list) > 1:
+            text_frame = tk.Frame(frame, bg='white')
+            text_frame.pack(side='left', padx=10)
 
-        text_label = tk.Label(frame,
-                             text=display_text,
-                             font=("Arial", 12),
-                             bg='white',
-                             justify='left')
-        text_label.pack(side='left', padx=10)
+            # Maak regel voor elke variant
+            for info in gender_info_list:
+                line_frame = tk.Frame(text_frame, bg='white')
+                line_frame.pack(anchor='w')
+
+                display_word = info.get('lemma', word)  # Gebruik lemma met juiste hoofdletters
+                tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white').pack(side='left')
+                tk.Label(line_frame, text=f" {info['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+                tk.Label(line_frame, text=f" ({info['gender']})", font=("Arial", 12), bg='white').pack(side='left')
+
+            # "staat in Woordenlijst.org" regel
+            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
+
+        elif article and gender:
+            # Enkele entry met italics
+            text_frame = tk.Frame(frame, bg='white')
+            text_frame.pack(side='left', padx=10)
+
+            first_line_frame = tk.Frame(text_frame, bg='white')
+            first_line_frame.pack(anchor='w')
+
+            tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white').pack(side='left')
+            tk.Label(first_line_frame, text=f" {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+            tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
+
+            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
+
+            # Eventuele ambigue notitie
+            if word_info and word_info.get('is_ambiguous'):
+                tk.Label(text_frame, text="", font=("Arial", 8), bg='white').pack()
+                tk.Label(text_frame, text="▶ tevens infinitief", font=("Arial", 11), bg='white').pack(anchor='w')
+        else:
+            # Normale tekst zonder speciale opmaak
+            text_label = tk.Label(frame,
+                                 text=display_text,
+                                 font=("Arial", 12),
+                                 bg='white',
+                                 justify='left')
+            text_label.pack(side='left', padx=10)
 
         # Automatisch sluiten na 3 seconden
         popup.after(3000, lambda: [popup.destroy(), root.destroy()])
@@ -689,13 +806,14 @@ def perform_check():
     except Exception as e:
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
-    # Voer de online check uit (nu met 4 returnwaarden)
-    is_valid, checked_word, error_message, article, word_info = check_word_online(selected_word)
+
+    # Voer de online check uit (nu met 7 returnwaarden)
+    is_valid, checked_word, error_message, article, word_info, gender, gender_info_list = check_word_online(selected_word)
 
     # Geef feedback op basis van het resultaat
     if is_valid:
         # Toon pop-up met groen vinkje en optioneel lidwoord
-        show_success_popup(checked_word, article, word_info)
+        show_success_popup(checked_word, article, word_info, gender, gender_info_list)
     else:
         # Toon pop-up met Ja/Nee-opties en specifieke foutmelding
         if checked_word:
@@ -703,7 +821,7 @@ def perform_check():
 
 # --- HOOFDFUNCTIE ---
 def main():
-    print("--- Woordenlijstchecker v1.2.7 ---")
+    print("--- Woordenlijst-checker v1.2.8 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
     print("Druk op 'Esc' om het script te stoppen.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
