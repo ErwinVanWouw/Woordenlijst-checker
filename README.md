@@ -8,7 +8,7 @@ This free and open source tool allows editors, proofreaders, and translators to 
 The database and application for Woordenlijst.org is developed and managed by [Instituut voor de Nederlandse Taal](https://ivdnt.org/) under the authority of the [Taalunie](https://taalunie.org/). The Woordenlijst-checker tool uses this database but is in no other way affiliated with the Nederlandse Taalunie.
 
 Website official Dutch spelling database: https://woordenlijst.org/  
-Website Woordenlijst-checker tool: https://www.blackkite.nl/nieuws/woordenlijst-checker.php
+Dutch website Woordenlijst-checker tool: https://www.blackkite.nl/nieuws/woordenlijst-checker.php
 
 ## Installation
 Download the latest package under [Releases](../../releases/) and run the program. This has the Python application and all its dependencies bundled into a single package. If Python is installed on your machine, simply download the Python file and run it.
@@ -19,7 +19,7 @@ Download the latest package under [Releases](../../releases/) and run the progra
 - multi-monitor support
 - shows a verification window for 3 seconds if a word is found
 - option to open Woordenlijst.org if a word is not listed
-- automatically shows the correct article (de/het) for Dutch nouns
+- automatically shows the correct article (de/het) and gender for Dutch nouns
 
 ## How to Use
 Select the word you want to look up (Ctrl+Shift+Left/Right Arrow). Press F9 and look at your screen.  
