@@ -576,6 +576,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         check_label = tk.Label(frame, text="✓", font=("Arial", 48), fg='green', bg='white')
         check_label.pack(side='left', padx=10)
 
+        # Woordlabels die klikbaar worden na een muisklik in de pop-up
+        word_labels = []  # lijst van (label, url) tuples
+
         # Opmaak voor homoniemen
         if gender_info_list and len(gender_info_list) > 1:
             text_frame = tk.Frame(frame, bg='white')
@@ -587,7 +590,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 line_frame.pack(anchor='w')
 
                 display_word = info.get('lemma', word)  # Gebruik lemma met juiste hoofdletters
-                tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white').pack(side='left')
+                word_lbl = tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
+                word_lbl.pack(side='left')
+                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
                 tk.Label(line_frame, text=f" {info['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
                 tk.Label(line_frame, text=f" ({info['gender']})", font=("Arial", 12), bg='white').pack(side='left')
 
@@ -602,7 +607,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             first_line_frame = tk.Frame(text_frame, bg='white')
             first_line_frame.pack(anchor='w')
 
-            tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white').pack(side='left')
+            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+            word_lbl.pack(side='left')
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
             tk.Label(first_line_frame, text=f" {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
@@ -620,6 +627,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                                  bg='white',
                                  justify='left')
             text_label.pack(side='left', padx=10)
+            word_labels.append((text_label, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
 
         # Automatisch sluiten na 3 seconden (annuleerbaar via linkermuisklik)
         auto_close = [None]
@@ -628,6 +636,10 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             if auto_close[0] is not None:
                 popup.after_cancel(auto_close[0])
                 auto_close[0] = None
+                # Maak woordlabels klikbaar als hyperlink
+                for lbl, url in word_labels:
+                    lbl.config(fg='blue', cursor='hand2', font=("Arial", 12, "underline"))
+                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy(), root.destroy()])
 
         auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.destroy()])
 
