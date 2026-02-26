@@ -584,15 +584,16 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
-            # Maak regel voor elke variant
-            for info in gender_info_list:
+            # Maak regel voor elke variant (alleen eerste woord wordt klikbaar)
+            for i, info in enumerate(gender_info_list):
                 line_frame = tk.Frame(text_frame, bg='white')
                 line_frame.pack(anchor='w')
 
                 display_word = info.get('lemma', word)  # Gebruik lemma met juiste hoofdletters
                 word_lbl = tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
                 word_lbl.pack(side='left')
-                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
+                if i == 0:
+                    word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
                 tk.Label(line_frame, text=f" {info['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
                 tk.Label(line_frame, text=f" ({info['gender']})", font=("Arial", 12), bg='white').pack(side='left')
 
@@ -620,14 +621,20 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 tk.Label(text_frame, text="", font=("Arial", 8), bg='white').pack()
                 tk.Label(text_frame, text="▶ tevens infinitief", font=("Arial", 11), bg='white').pack(anchor='w')
         else:
-            # Normale tekst zonder speciale opmaak
-            text_label = tk.Label(frame,
-                                 text=display_text,
-                                 font=("Arial", 12),
-                                 bg='white',
-                                 justify='left')
-            text_label.pack(side='left', padx=10)
-            word_labels.append((text_label, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+            # Normale tekst: splits woord en overige tekst in aparte labels
+            text_frame = tk.Frame(frame, bg='white')
+            text_frame.pack(side='left', padx=10)
+
+            first_line = f"'{word}' ({article})" if article else f"'{word}'"
+            word_lbl = tk.Label(text_frame, text=first_line, font=("Arial", 12), bg='white')
+            word_lbl.pack(anchor='w')
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+
+            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+
+            if word_info and word_info.get('is_ambiguous'):
+                tk.Label(text_frame, text="", font=("Arial", 8), bg='white').pack()
+                tk.Label(text_frame, text="▶ tevens infinitief", font=("Arial", 11), bg='white').pack(anchor='w')
 
         # Automatisch sluiten na 3 seconden (annuleerbaar via linkermuisklik)
         auto_close = [None]
