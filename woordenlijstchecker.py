@@ -621,8 +621,23 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                                  justify='left')
             text_label.pack(side='left', padx=10)
 
-        # Automatisch sluiten na 3 seconden
-        popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+        # Automatisch sluiten na 3 seconden (annuleerbaar via linkermuisklik)
+        auto_close = [None]
+
+        def cancel_auto_close(event=None):
+            if auto_close[0] is not None:
+                popup.after_cancel(auto_close[0])
+                auto_close[0] = None
+
+        auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+
+        # Bind linkermuisklik op pop-up en alle child-widgets om timer te annuleren
+        def bind_click_to_cancel(widget):
+            widget.bind('<Button-1>', cancel_auto_close, add=True)
+            for child in widget.winfo_children():
+                bind_click_to_cancel(child)
+
+        bind_click_to_cancel(popup)
 
         # Start de GUI-loop
         popup.mainloop()
