@@ -823,13 +823,11 @@ def perform_check():
 def main():
     print("--- Woordenlijst-checker v1.2.8 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
-    print("Druk op 'Esc' om het script te stoppen.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
-    keyboard.wait('esc')
-    print("\n--- Script gestopt. ---")
+    threading.Event().wait()
 
 if __name__ == "__main__":
     main()
