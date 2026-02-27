@@ -14,7 +14,6 @@ import warnings
 import configparser
 import os
 from collections import deque
-from datetime import datetime, timedelta
 import re
 import sys
 
@@ -28,11 +27,11 @@ MAX_REQUESTS_PER_MINUTE = 30
 
 def check_rate_limit():
     """Check of we niet te veel requests doen"""
-    now = datetime.now()
+    now = time.time()
     request_history.append(now)
 
     # Tel requests in laatste minuut
-    recent = sum(1 for t in request_history if now - t < timedelta(minutes=1))
+    recent = sum(1 for t in request_history if now - t < 60)
 
     if recent > MAX_REQUESTS_PER_MINUTE:
         print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
@@ -102,9 +101,21 @@ def save_popup_position(x, y):
         config.write(f)
 
 def get_popup_position(width, height):
-    """Bepaal pop-uppositie met robuuste validatie"""
+    """Bepaal pop-uppositie; valt terug op schermcentrum als opgeslagen positie onbereikbaar is"""
+    def center():
+        try:
+            temp = tk.Tk()
+            temp.withdraw()
+            x = int(temp.winfo_screenwidth()/2 - width/2)
+            y = int(temp.winfo_screenheight()/2 - height/2)
+            temp.destroy()
+            return x, y
+        except Exception as e:
+            print(f"[Waarschuwing] Kon centrumpositie niet bepalen: {e}")
+            return 100, 100
+
     if POPUP_X == -1 or POPUP_Y == -1:
-        return get_center_position(width, height)
+        return center()
 
     # Test of positie werkelijk zichtbaar is
     try:
@@ -112,8 +123,6 @@ def get_popup_position(width, height):
         test.withdraw()
         test.geometry(f"1x1+{POPUP_X}+{POPUP_Y}")
         test.update()
-
-        # Check of window op gevraagde positie staat
         actual_x = test.winfo_x()
         actual_y = test.winfo_y()
         test.destroy()
@@ -121,26 +130,13 @@ def get_popup_position(width, height):
         # Als Windows positie heeft aangepast (>100px verschil)
         if abs(actual_x - POPUP_X) > 100 or abs(actual_y - POPUP_Y) > 100:
             print("[Info] Opgeslagen positie niet bereikbaar, gebruik centrum")
-            return get_center_position(width, height)
+            return center()
 
         return POPUP_X, POPUP_Y
 
     except Exception as e:
         print(f"[Waarschuwing] Kon pop-uppositie niet valideren: {e}")
-        return get_center_position(width, height)
-
-def get_center_position(width, height):
-    """Bereken centrumpositie van primaire monitor"""
-    try:
-        temp_root = tk.Tk()
-        temp_root.withdraw()
-        x = int(temp_root.winfo_screenwidth()/2 - width/2)
-        y = int(temp_root.winfo_screenheight()/2 - height/2)
-        temp_root.destroy()
-        return x, y
-    except Exception as e:
-        print(f"[Waarschuwing] Kon centrumpositie niet bepalen: {e}")
-        return 100, 100  # Fallback positie
+        return center()
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
@@ -485,6 +481,27 @@ def get_spelling_suggestions(word):
         print(f"[Waarschuwing] Kon geen suggesties ophalen: {e}")
         return None
 
+# --- GEDEELDE POPUP HULPFUNCTIES ---
+def _set_icon(window):
+    """Stel favicon.ico in op een tkinter-venster (werkt zowel als .py als .exe)"""
+    try:
+        icon_path = os.path.join(sys._MEIPASS, "favicon.ico") if hasattr(sys, '_MEIPASS') else "favicon.ico"
+        if os.path.exists(icon_path):
+            window.iconbitmap(icon_path)
+    except Exception as e:
+        print(f"[Info] Kon icoon niet laden: {e}")
+
+def _bind_drag_save(window):
+    """Sla pop-uppositie op zodra het venster wordt verplaatst"""
+    def on_drag_end(event):
+        if event.widget == window:
+            new_x = window.winfo_x()
+            new_y = window.winfo_y()
+            if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
+                save_popup_position(new_x, new_y)
+                print(f"[Info] Nieuwe pop-uppositie opgeslagen: {new_x}, {new_y}")
+    window.bind('<Configure>', on_drag_end)
+
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
@@ -497,53 +514,29 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         popup.title("Gevonden")
         popup.configure(bg='white')
 
-        try:
-            # ICO-bestand in dezelfde map als het script
-            if hasattr(sys, '_MEIPASS'):
-                # Running als .exe
-                icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
-            else:
-                # Running als .py script
-                icon_path = "favicon.ico"
+        _set_icon(popup)
 
-            if os.path.exists(icon_path):
-                popup.iconbitmap(icon_path)
-        except Exception as e:
-            print(f"[Info] Kon icoon niet laden: {e}")
-
-        # Bepaal de displaytekst en pop-upgrootte
+        # Bepaal pop-upgrootte op basis van inhoud
         if gender_info_list and len(gender_info_list) > 1:
-            # HOMONIEMEN - meerdere regels
-            display_lines = []
-            for info in gender_info_list:
-                # Gebruik het lemma uit de info indien beschikbaar, anders word
-                display_word = info.get('lemma', word)
-                display_lines.append(f"'{display_word}' {info['article']} ({info['gender']})")
-            display_text = "\n".join(display_lines) + "\n\nstaat in Woordenlijst.org"
             popup_height = 150 + (len(gender_info_list) - 1) * 25 + 10
-
+            max_line_len = max(
+                len(f"'{info.get('lemma', word)}' {info['article']} ({info['gender']})")
+                for info in gender_info_list
+            )
         elif word_info and word_info.get('is_ambiguous'):
-            # Ambigue woord (werkwoord + meervoud)
-            if gender:
-                display_text = f"'{word}' {article} ({gender})\n\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
-            else:
-                display_text = f"'{word}' ({article})\n\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
             popup_height = 190
-
+            first_line = f"'{word}' {article} ({gender})" if gender else f"'{word}' ({article})"
+            max_line_len = max(len(first_line), len("staat in Woordenlijst.org"), len("▶ tevens infinitief"))
         elif article:
-            # Normale woorden met lidwoord en mogelijk gender (inclusief meervouden)
-            if gender:
-                display_text = f"'{word}' {article} ({gender})\n\nstaat in Woordenlijst.org"
-            else:
-                display_text = f"'{word}' ({article})\n\nstaat in Woordenlijst.org"
             popup_height = 160
-
+            first_line = f"'{word}' {article} ({gender})" if gender else f"'{word}' ({article})"
+            max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
-            display_text = f"'{word}'\n\nstaat in Woordenlijst.org"
             popup_height = 160
+            max_line_len = max(len(f"'{word}'"), len("staat in Woordenlijst.org"))
 
         # Bereken benodigde breedte op basis van tekstlengte
-        estimated_width = max(len(line) for line in display_text.split('\n')) * 8 + 200
+        estimated_width = max_line_len * 8 + 200
         min_width = 350
         max_width = 600
         popup_width = max(min_width, min(estimated_width, max_width))
@@ -556,17 +549,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         popup.resizable(False, False)
         popup.attributes('-topmost', True)
 
-        # Detecteer wanneer pop-up wordt verplaatst
-        def on_drag_end(event):
-            if event.widget == popup:
-                new_x = popup.winfo_x()
-                new_y = popup.winfo_y()
-                # Alleen opslaan als positie echt veranderd is (niet bij andere events)
-                if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
-                    save_popup_position(new_x, new_y)
-                    print(f"[Info] Nieuwe popup positie opgeslagen: {new_x}, {new_y}")
-
-        popup.bind('<Configure>', on_drag_end)
+        _bind_drag_save(popup)
 
         # Frame voor content
         frame = tk.Frame(popup, bg='white')
@@ -681,19 +664,7 @@ def show_failure_popup(word, error_message=None):
         dialog.resizable(False, False)
         dialog.attributes('-topmost', True)
 
-        try:
-            # ICO-bestand in dezelfde map als het script
-            if hasattr(sys, '_MEIPASS'):
-                # Running als .exe
-                icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
-            else:
-                # Running als .py script
-                icon_path = "favicon.ico"
-
-            if os.path.exists(icon_path):
-                dialog.iconbitmap(icon_path)
-        except Exception as e:
-            print(f"[Info] Kon icoon niet laden: {e}")
+        _set_icon(dialog)
 
         # Bepaal hoogte op basis van inhoud
         base_height = 180  # Basishoogte voor titel, knoppen en footer
@@ -720,17 +691,7 @@ def show_failure_popup(word, error_message=None):
         x, y = get_popup_position(450, total_height)
         dialog.geometry(f"450x{total_height}+{x}+{y}")
 
-        # Detecteer wanneer pop-up wordt verplaatst
-        def on_drag_end(event):
-            if event.widget == dialog:
-                new_x = dialog.winfo_x()
-                new_y = dialog.winfo_y()
-                # Alleen opslaan als positie echt veranderd is
-                if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
-                    save_popup_position(new_x, new_y)
-                    print(f"[Info] Nieuwe pop-uppositie opgeslagen: {new_x}, {new_y}")
-
-        dialog.bind('<Configure>', on_drag_end)
+        _bind_drag_save(dialog)
 
         # Hoofdtekst
         main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
