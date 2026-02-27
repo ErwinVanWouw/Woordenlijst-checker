@@ -178,21 +178,17 @@ def check_word_online(word):
             wordforms = re.findall(r'<wordform>(.*?)</wordform>', xml_content)
             lemmas = [l for l in re.findall(r'<lemma>(.*?)</lemma>', xml_content) if l]
 
-            # NIEUWE SECTIE: Detecteer woordsoorten
-            word_types = set()
+            # Detecteer woordsoorten
             is_verb = False
             is_plural_noun = False
-            noun_lemma = None
 
             # Check of het een werkwoord is
             verb_pattern = r'<label>hoofdwerkwoord</label><lemma>' + re.escape(word_normalized) + r'</lemma>'
             if re.search(verb_pattern, xml_content):
-                word_types.add('werkwoord')
                 is_verb = True
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
 
             # LIDWOORDEXTRACTIE - gebaseerd op part_of_speech
-            articles = set()
             gender_info_list = []  # lijst van dicts met article/gender combinaties
             gender = None
 
@@ -215,23 +211,11 @@ def check_word_online(word):
                 gender = None
                 gender_info_list = None
                 print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
-
-                # Zoek het enkelvoud lemma
-                noun_pattern = r'<lemma>(.*?)</lemma>.*?<label>zelfstandig naamwoord.*?</label>.*?<paradigm>.*?<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-                noun_match = re.search(noun_pattern, xml_content, re.DOTALL)
-                if noun_match:
-                    noun_lemma = noun_match.group(1)
-                else:
-                    # Alternatief: zoek gewoon naar een zelfstandig naamwoord lemma
-                    noun_lemmas = re.findall(r'<lemma>(.*?)</lemma>.*?<label>zelfstandig naamwoord', xml_content, re.DOTALL)
-                    if noun_lemmas and noun_lemmas[0] != word_normalized:
-                        noun_lemma = noun_lemmas[0]
             else:
                 # Voor enkelvoud: verzamel genders per lemma voorkomen
                 lemma_entries = []
 
                 # Verzamel unieke lemma's
-                seen_combinations = set()
                 matching_lemmas = []
 
                 for l in lemmas:
@@ -292,7 +276,6 @@ def check_word_online(word):
 
                             if not duplicate:
                                 lemma_entries.append(entry)
-                                articles.update(entry_articles)  # Voor backward compatibility
 
                 # Verwerk de resultaten
                 if lemma_entries:
@@ -304,8 +287,7 @@ def check_word_online(word):
                     else:
                         # Meerdere combinaties (homoniemen)
                         gender_info_list = lemma_entries
-                        # Voor backward compatibility, combineer alle articles
-                        article = "/".join(sorted(articles))
+                        article = "/".join(sorted({e['article'] for e in lemma_entries}))
                         gender = None  # Geen enkele gender, want we hebben een lijst
                 else:
                     article = None
@@ -315,13 +297,7 @@ def check_word_online(word):
             # Maak word_info dictionary voor complexe gevallen
             word_info = None
             if is_verb and is_plural_noun:
-                word_info = {
-                    'is_ambiguous': True,
-                    'is_verb': True,
-                    'is_plural': True,
-                    'noun_lemma': noun_lemma if noun_lemma else '?',
-                    'article': 'de'  # Meervoud is altijd 'de'
-                }
+                word_info = {'is_ambiguous': True}
                 print(f"[Info] Ambigue woord: zowel werkwoord als meervoud zelfstandig naamwoord")
 
             # Update word_info met gender info
