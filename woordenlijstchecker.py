@@ -43,6 +43,17 @@ def check_rate_limit():
         return False
     return True
 
+# --- INVOERFILTER ---
+def is_geldig_invoer(word):
+    """Controleert of de invoer eruitziet als een geldig Nederlands woord of woordgroep."""
+    if len(word) > 60:
+        return False, "De geselecteerde tekst is te lang voor een woordcontrole."
+    if not re.search(r'[a-zA-ZÀ-öø-ÿ]', word):
+        return False, "De geselecteerde tekst bevat geen letters."
+    if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/]+", word):
+        return False, "De geselecteerde tekst bevat tekens die normaal niet in een Nederlands woord voorkomen."
+    return True, None
+
 # --- CONFIGURATIE ---
 def load_config():
     """Laad configuratie uit ini bestand of maak standaard aan"""
@@ -751,6 +762,61 @@ def show_failure_popup(word, error_message=None):
     except Exception as e:
         print(f"[Fout] Kon foutpop-up niet tonen: {e}")
 
+def show_invoerfilter_popup(word, reden):
+    """Toon waarschuwingspop-up voor ongeldige invoer; retourneert True als gebruiker toch wil opzoeken."""
+    try:
+        doorgaan = [False]
+
+        root = tk.Tk()
+        root.withdraw()
+
+        dialog = tk.Toplevel(root)
+        dialog.title("Ongebruikelijke invoer")
+        dialog.resizable(False, False)
+        dialog.attributes('-topmost', True)
+
+        _set_icon(dialog)
+
+        x, y = get_popup_position(420, 200)
+        dialog.geometry(f"420x200+{x}+{y}")
+
+        _bind_drag_save(dialog)
+
+        tk.Label(dialog, text=f"'{word}'", font=("Arial", 11, "bold"), pady=8).pack()
+        tk.Label(dialog, text=reden, font=("Arial", 10), wraplength=380, pady=4).pack()
+        tk.Label(dialog, text="Wilt u de term toch opzoeken?", pady=5).pack()
+
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=10)
+
+        def ja_action():
+            doorgaan[0] = True
+            dialog.destroy()
+            root.destroy()
+
+        def nee_action():
+            dialog.destroy()
+            root.destroy()
+
+        ja_button = tk.Button(button_frame, text="Toch opzoeken", command=ja_action, width=14)
+        ja_button.pack(side='left', padx=5)
+
+        nee_button = tk.Button(button_frame, text="Annuleren", command=nee_action, width=10, default='active')
+        nee_button.pack(side='left', padx=5)
+
+        dialog.after(100, lambda: nee_button.focus_force())
+
+        nee_button.bind('<Return>', lambda e: nee_action())
+        ja_button.bind('<Return>', lambda e: ja_action())
+        dialog.bind('<Escape>', lambda e: nee_action())
+
+        dialog.mainloop()
+        return doorgaan[0]
+
+    except Exception as e:
+        print(f"[Fout] Kon invoerfilterpop-up niet tonen: {e}")
+        return True  # Bij fout toch doorgaan
+
 # --- ACTIE DIE WORDT UITGEVOERD BIJ INDRUKKEN SNELTOETS ---
 def perform_check():
     """De volledige actie: kopieer, lees klembord, start de controle en geef feedback."""
@@ -787,6 +853,13 @@ def perform_check():
     except Exception as e:
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
+
+    # Controleer of invoer eruitziet als een geldig woord of woordgroep
+    geldig, reden = is_geldig_invoer(selected_word)
+    if not geldig:
+        print(f"[Info] Invoerfilter: {reden}")
+        if not show_invoerfilter_popup(selected_word, reden):
+            return
 
     # Voer de online check uit (nu met 7 returnwaarden)
     is_valid, checked_word, error_message, article, word_info, gender, gender_info_list = check_word_online(selected_word)
