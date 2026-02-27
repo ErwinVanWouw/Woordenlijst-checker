@@ -856,6 +856,12 @@ def perform_check():
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
 
+    # Normaliseer typografische apostrofs voordat de filter en API worden aangeroepen
+    selected_word_norm = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", selected_word)
+    if selected_word_norm != selected_word:
+        print(f"[Info] Apostrof genormaliseerd: '{selected_word}' → '{selected_word_norm}'")
+        selected_word = selected_word_norm
+
     # Controleer of invoer eruitziet als een geldig woord of woordgroep
     geldig, reden = is_geldig_invoer(selected_word)
     if not geldig:
