@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.2.8 door Black Kite (blackkite.nl)
+# Woordenlijst-checker v1.2.9 door Black Kite (blackkite.nl)
 
 # Vereiste bibliotheken
 import time
@@ -14,7 +14,6 @@ import warnings
 import configparser
 import os
 from collections import deque
-from datetime import datetime, timedelta
 import re
 import sys
 
@@ -28,11 +27,11 @@ MAX_REQUESTS_PER_MINUTE = 30
 
 def check_rate_limit():
     """Check of we niet te veel requests doen"""
-    now = datetime.now()
+    now = time.time()
     request_history.append(now)
 
     # Tel requests in laatste minuut
-    recent = sum(1 for t in request_history if now - t < timedelta(minutes=1))
+    recent = sum(1 for t in request_history if now - t < 60)
 
     if recent > MAX_REQUESTS_PER_MINUTE:
         print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
@@ -43,6 +42,19 @@ def check_rate_limit():
         root.destroy()
         return False
     return True
+
+# --- INVOERFILTER ---
+def is_geldig_invoer(word):
+    """Controleert of de invoer eruitziet als een geldig Nederlands woord of woordgroep."""
+    if len(word) > 60:
+        return False, "De geselecteerde tekst is te lang voor een woordcontrole."
+    if not re.search(r'[a-zA-ZÀ-öø-ÿ]', word):
+        return False, "De geselecteerde tekst bevat geen letters."
+    if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/\u00B9\u00B2\u00B3\u2070-\u2079\u2080-\u2089]+", word):
+        return False, "De geselecteerde tekst bevat tekens die normaal niet in een Nederlands woord voorkomen."
+    if len(re.findall(r'[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]', re.sub(r'[0-9]', '', word))) >= 2:
+        return False, "De geselecteerde tekst lijkt camelCase te bevatten, wat geen normaal woordpatroon is."
+    return True, None
 
 # --- CONFIGURATIE ---
 def load_config():
@@ -102,9 +114,21 @@ def save_popup_position(x, y):
         config.write(f)
 
 def get_popup_position(width, height):
-    """Bepaal pop-uppositie met robuuste validatie"""
+    """Bepaal pop-uppositie; valt terug op schermcentrum als opgeslagen positie onbereikbaar is"""
+    def center():
+        try:
+            temp = tk.Tk()
+            temp.withdraw()
+            x = int(temp.winfo_screenwidth()/2 - width/2)
+            y = int(temp.winfo_screenheight()/2 - height/2)
+            temp.destroy()
+            return x, y
+        except Exception as e:
+            print(f"[Waarschuwing] Kon centrumpositie niet bepalen: {e}")
+            return 100, 100
+
     if POPUP_X == -1 or POPUP_Y == -1:
-        return get_center_position(width, height)
+        return center()
 
     # Test of positie werkelijk zichtbaar is
     try:
@@ -112,8 +136,6 @@ def get_popup_position(width, height):
         test.withdraw()
         test.geometry(f"1x1+{POPUP_X}+{POPUP_Y}")
         test.update()
-
-        # Check of window op gevraagde positie staat
         actual_x = test.winfo_x()
         actual_y = test.winfo_y()
         test.destroy()
@@ -121,26 +143,13 @@ def get_popup_position(width, height):
         # Als Windows positie heeft aangepast (>100px verschil)
         if abs(actual_x - POPUP_X) > 100 or abs(actual_y - POPUP_Y) > 100:
             print("[Info] Opgeslagen positie niet bereikbaar, gebruik centrum")
-            return get_center_position(width, height)
+            return center()
 
         return POPUP_X, POPUP_Y
 
     except Exception as e:
         print(f"[Waarschuwing] Kon pop-uppositie niet valideren: {e}")
-        return get_center_position(width, height)
-
-def get_center_position(width, height):
-    """Bereken centrumpositie van primaire monitor"""
-    try:
-        temp_root = tk.Tk()
-        temp_root.withdraw()
-        x = int(temp_root.winfo_screenwidth()/2 - width/2)
-        y = int(temp_root.winfo_screenheight()/2 - height/2)
-        temp_root.destroy()
-        return x, y
-    except Exception as e:
-        print(f"[Waarschuwing] Kon centrumpositie niet bepalen: {e}")
-        return 100, 100  # Fallback positie
+        return center()
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
@@ -182,21 +191,17 @@ def check_word_online(word):
             wordforms = re.findall(r'<wordform>(.*?)</wordform>', xml_content)
             lemmas = [l for l in re.findall(r'<lemma>(.*?)</lemma>', xml_content) if l]
 
-            # NIEUWE SECTIE: Detecteer woordsoorten
-            word_types = set()
+            # Detecteer woordsoorten
             is_verb = False
             is_plural_noun = False
-            noun_lemma = None
 
             # Check of het een werkwoord is
             verb_pattern = r'<label>hoofdwerkwoord</label><lemma>' + re.escape(word_normalized) + r'</lemma>'
             if re.search(verb_pattern, xml_content):
-                word_types.add('werkwoord')
                 is_verb = True
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
 
             # LIDWOORDEXTRACTIE - gebaseerd op part_of_speech
-            articles = set()
             gender_info_list = []  # lijst van dicts met article/gender combinaties
             gender = None
 
@@ -219,23 +224,11 @@ def check_word_online(word):
                 gender = None
                 gender_info_list = None
                 print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
-
-                # Zoek het enkelvoud lemma
-                noun_pattern = r'<lemma>(.*?)</lemma>.*?<label>zelfstandig naamwoord.*?</label>.*?<paradigm>.*?<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-                noun_match = re.search(noun_pattern, xml_content, re.DOTALL)
-                if noun_match:
-                    noun_lemma = noun_match.group(1)
-                else:
-                    # Alternatief: zoek gewoon naar een zelfstandig naamwoord lemma
-                    noun_lemmas = re.findall(r'<lemma>(.*?)</lemma>.*?<label>zelfstandig naamwoord', xml_content, re.DOTALL)
-                    if noun_lemmas and noun_lemmas[0] != word_normalized:
-                        noun_lemma = noun_lemmas[0]
             else:
                 # Voor enkelvoud: verzamel genders per lemma voorkomen
                 lemma_entries = []
 
                 # Verzamel unieke lemma's
-                seen_combinations = set()
                 matching_lemmas = []
 
                 for l in lemmas:
@@ -296,7 +289,6 @@ def check_word_online(word):
 
                             if not duplicate:
                                 lemma_entries.append(entry)
-                                articles.update(entry_articles)  # Voor backward compatibility
 
                 # Verwerk de resultaten
                 if lemma_entries:
@@ -308,8 +300,7 @@ def check_word_online(word):
                     else:
                         # Meerdere combinaties (homoniemen)
                         gender_info_list = lemma_entries
-                        # Voor backward compatibility, combineer alle articles
-                        article = "/".join(sorted(articles))
+                        article = "/".join(sorted({e['article'] for e in lemma_entries}))
                         gender = None  # Geen enkele gender, want we hebben een lijst
                 else:
                     article = None
@@ -319,13 +310,7 @@ def check_word_online(word):
             # Maak word_info dictionary voor complexe gevallen
             word_info = None
             if is_verb and is_plural_noun:
-                word_info = {
-                    'is_ambiguous': True,
-                    'is_verb': True,
-                    'is_plural': True,
-                    'noun_lemma': noun_lemma if noun_lemma else '?',
-                    'article': 'de'  # Meervoud is altijd 'de'
-                }
+                word_info = {'is_ambiguous': True}
                 print(f"[Info] Ambigue woord: zowel werkwoord als meervoud zelfstandig naamwoord")
 
             # Update word_info met gender info
@@ -485,6 +470,27 @@ def get_spelling_suggestions(word):
         print(f"[Waarschuwing] Kon geen suggesties ophalen: {e}")
         return None
 
+# --- GEDEELDE POPUP HULPFUNCTIES ---
+def _set_icon(window):
+    """Stel favicon.ico in op een tkinter-venster (werkt zowel als .py als .exe)"""
+    try:
+        icon_path = os.path.join(sys._MEIPASS, "favicon.ico") if hasattr(sys, '_MEIPASS') else "favicon.ico"
+        if os.path.exists(icon_path):
+            window.iconbitmap(icon_path)
+    except Exception as e:
+        print(f"[Info] Kon icoon niet laden: {e}")
+
+def _bind_drag_save(window):
+    """Sla pop-uppositie op zodra het venster wordt verplaatst"""
+    def on_drag_end(event):
+        if event.widget == window:
+            new_x = window.winfo_x()
+            new_y = window.winfo_y()
+            if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
+                save_popup_position(new_x, new_y)
+                print(f"[Info] Nieuwe pop-uppositie opgeslagen: {new_x}, {new_y}")
+    window.bind('<Configure>', on_drag_end)
+
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
@@ -497,53 +503,29 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         popup.title("Gevonden")
         popup.configure(bg='white')
 
-        try:
-            # ICO-bestand in dezelfde map als het script
-            if hasattr(sys, '_MEIPASS'):
-                # Running als .exe
-                icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
-            else:
-                # Running als .py script
-                icon_path = "favicon.ico"
+        _set_icon(popup)
 
-            if os.path.exists(icon_path):
-                popup.iconbitmap(icon_path)
-        except Exception as e:
-            print(f"[Info] Kon icoon niet laden: {e}")
-
-        # Bepaal de displaytekst en pop-upgrootte
+        # Bepaal pop-upgrootte op basis van inhoud
         if gender_info_list and len(gender_info_list) > 1:
-            # HOMONIEMEN - meerdere regels
-            display_lines = []
-            for info in gender_info_list:
-                # Gebruik het lemma uit de info indien beschikbaar, anders word
-                display_word = info.get('lemma', word)
-                display_lines.append(f"'{display_word}' {info['article']} ({info['gender']})")
-            display_text = "\n".join(display_lines) + "\n\nstaat in Woordenlijst.org"
             popup_height = 150 + (len(gender_info_list) - 1) * 25 + 10
-
+            max_line_len = max(
+                len(f"'{info.get('lemma', word)}' {info['article']} ({info['gender']})")
+                for info in gender_info_list
+            )
         elif word_info and word_info.get('is_ambiguous'):
-            # Ambigue woord (werkwoord + meervoud)
-            if gender:
-                display_text = f"'{word}' {article} ({gender})\n\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
-            else:
-                display_text = f"'{word}' ({article})\n\nstaat in Woordenlijst.org\n\n▶ tevens infinitief"
             popup_height = 190
-
+            first_line = f"'{word}' {article} ({gender})" if gender else f"'{word}' ({article})"
+            max_line_len = max(len(first_line), len("staat in Woordenlijst.org"), len("▶ tevens infinitief"))
         elif article:
-            # Normale woorden met lidwoord en mogelijk gender (inclusief meervouden)
-            if gender:
-                display_text = f"'{word}' {article} ({gender})\n\nstaat in Woordenlijst.org"
-            else:
-                display_text = f"'{word}' ({article})\n\nstaat in Woordenlijst.org"
             popup_height = 160
-
+            first_line = f"'{word}' {article} ({gender})" if gender else f"'{word}' ({article})"
+            max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
-            display_text = f"'{word}'\n\nstaat in Woordenlijst.org"
             popup_height = 160
+            max_line_len = max(len(f"'{word}'"), len("staat in Woordenlijst.org"))
 
         # Bereken benodigde breedte op basis van tekstlengte
-        estimated_width = max(len(line) for line in display_text.split('\n')) * 8 + 200
+        estimated_width = max_line_len * 8 + 200
         min_width = 350
         max_width = 600
         popup_width = max(min_width, min(estimated_width, max_width))
@@ -556,17 +538,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         popup.resizable(False, False)
         popup.attributes('-topmost', True)
 
-        # Detecteer wanneer pop-up wordt verplaatst
-        def on_drag_end(event):
-            if event.widget == popup:
-                new_x = popup.winfo_x()
-                new_y = popup.winfo_y()
-                # Alleen opslaan als positie echt veranderd is (niet bij andere events)
-                if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
-                    save_popup_position(new_x, new_y)
-                    print(f"[Info] Nieuwe popup positie opgeslagen: {new_x}, {new_y}")
-
-        popup.bind('<Configure>', on_drag_end)
+        _bind_drag_save(popup)
 
         # Frame voor content
         frame = tk.Frame(popup, bg='white')
@@ -576,18 +548,24 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         check_label = tk.Label(frame, text="✓", font=("Arial", 48), fg='green', bg='white')
         check_label.pack(side='left', padx=10)
 
+        # Woordlabels die klikbaar worden na een muisklik in de pop-up
+        word_labels = []  # lijst van (label, url) tuples
+
         # Opmaak voor homoniemen
         if gender_info_list and len(gender_info_list) > 1:
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
-            # Maak regel voor elke variant
-            for info in gender_info_list:
+            # Maak regel voor elke variant (alleen eerste woord wordt klikbaar)
+            for i, info in enumerate(gender_info_list):
                 line_frame = tk.Frame(text_frame, bg='white')
                 line_frame.pack(anchor='w')
 
                 display_word = info.get('lemma', word)  # Gebruik lemma met juiste hoofdletters
-                tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white').pack(side='left')
+                word_lbl = tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
+                word_lbl.pack(side='left')
+                if i == 0:
+                    word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
                 tk.Label(line_frame, text=f" {info['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
                 tk.Label(line_frame, text=f" ({info['gender']})", font=("Arial", 12), bg='white').pack(side='left')
 
@@ -602,7 +580,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             first_line_frame = tk.Frame(text_frame, bg='white')
             first_line_frame.pack(anchor='w')
 
-            tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white').pack(side='left')
+            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+            word_lbl.pack(side='left')
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
             tk.Label(first_line_frame, text=f" {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
@@ -613,16 +593,52 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 tk.Label(text_frame, text="", font=("Arial", 8), bg='white').pack()
                 tk.Label(text_frame, text="▶ tevens infinitief", font=("Arial", 11), bg='white').pack(anchor='w')
         else:
-            # Normale tekst zonder speciale opmaak
-            text_label = tk.Label(frame,
-                                 text=display_text,
-                                 font=("Arial", 12),
-                                 bg='white',
-                                 justify='left')
-            text_label.pack(side='left', padx=10)
+            # Normale tekst: splits woord en overige tekst in aparte labels
+            text_frame = tk.Frame(frame, bg='white')
+            text_frame.pack(side='left', padx=10)
 
-        # Automatisch sluiten na 3 seconden
-        popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+            if article:
+                first_line_frame = tk.Frame(text_frame, bg='white')
+                first_line_frame.pack(anchor='w')
+                word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+                word_lbl.pack(side='left')
+                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+                tk.Label(first_line_frame, text=f" ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+            else:
+                word_lbl = tk.Label(text_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+                word_lbl.pack(anchor='w')
+                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+
+            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+
+            if word_info and word_info.get('is_ambiguous'):
+                tk.Label(text_frame, text="", font=("Arial", 8), bg='white').pack()
+                tk.Label(text_frame, text="▶ tevens infinitief", font=("Arial", 11), bg='white').pack(anchor='w')
+
+        # Automatisch sluiten na 3 seconden (annuleerbaar via linkermuisklik)
+        auto_close = [None]
+
+        def cancel_auto_close(event=None):
+            if auto_close[0] is not None:
+                popup.after_cancel(auto_close[0])
+                auto_close[0] = None
+                # Maak woordlabels klikbaar als hyperlink
+                for lbl, url in word_labels:
+                    lbl.config(fg='blue', cursor='hand2', font=("Arial", 12, "underline"))
+                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy(), root.destroy()])
+                # Zet focus op pop-up zodat Enter het venster sluit
+                popup.focus_set()
+                popup.bind('<Return>', lambda e: [popup.destroy(), root.destroy()])
+
+        auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+
+        # Bind linkermuisklik op pop-up en alle child-widgets om timer te annuleren
+        def bind_click_to_cancel(widget):
+            widget.bind('<Button-1>', cancel_auto_close, add=True)
+            for child in widget.winfo_children():
+                bind_click_to_cancel(child)
+
+        bind_click_to_cancel(popup)
 
         # Start de GUI-loop
         popup.mainloop()
@@ -644,19 +660,7 @@ def show_failure_popup(word, error_message=None):
         dialog.resizable(False, False)
         dialog.attributes('-topmost', True)
 
-        try:
-            # ICO-bestand in dezelfde map als het script
-            if hasattr(sys, '_MEIPASS'):
-                # Running als .exe
-                icon_path = os.path.join(sys._MEIPASS, "favicon.ico")
-            else:
-                # Running als .py script
-                icon_path = "favicon.ico"
-
-            if os.path.exists(icon_path):
-                dialog.iconbitmap(icon_path)
-        except Exception as e:
-            print(f"[Info] Kon icoon niet laden: {e}")
+        _set_icon(dialog)
 
         # Bepaal hoogte op basis van inhoud
         base_height = 180  # Basishoogte voor titel, knoppen en footer
@@ -683,17 +687,7 @@ def show_failure_popup(word, error_message=None):
         x, y = get_popup_position(450, total_height)
         dialog.geometry(f"450x{total_height}+{x}+{y}")
 
-        # Detecteer wanneer pop-up wordt verplaatst
-        def on_drag_end(event):
-            if event.widget == dialog:
-                new_x = dialog.winfo_x()
-                new_y = dialog.winfo_y()
-                # Alleen opslaan als positie echt veranderd is
-                if abs(new_x - POPUP_X) > 5 or abs(new_y - POPUP_Y) > 5:
-                    save_popup_position(new_x, new_y)
-                    print(f"[Info] Nieuwe pop-uppositie opgeslagen: {new_x}, {new_y}")
-
-        dialog.bind('<Configure>', on_drag_end)
+        _bind_drag_save(dialog)
 
         # Hoofdtekst
         main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
@@ -770,6 +764,61 @@ def show_failure_popup(word, error_message=None):
     except Exception as e:
         print(f"[Fout] Kon foutpop-up niet tonen: {e}")
 
+def show_invoerfilter_popup(word, reden):
+    """Toon waarschuwingspop-up voor ongeldige invoer; retourneert True als gebruiker toch wil opzoeken."""
+    try:
+        doorgaan = [False]
+
+        root = tk.Tk()
+        root.withdraw()
+
+        dialog = tk.Toplevel(root)
+        dialog.title("Ongebruikelijke invoer")
+        dialog.resizable(False, False)
+        dialog.attributes('-topmost', True)
+
+        _set_icon(dialog)
+
+        x, y = get_popup_position(420, 200)
+        dialog.geometry(f"420x200+{x}+{y}")
+
+        _bind_drag_save(dialog)
+
+        tk.Label(dialog, text=f"'{word}'", font=("Arial", 11, "bold"), pady=8).pack()
+        tk.Label(dialog, text=reden, font=("Arial", 10), wraplength=380, pady=4).pack()
+        tk.Label(dialog, text="Wilt u de term toch opzoeken?", pady=5).pack()
+
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=10)
+
+        def ja_action():
+            doorgaan[0] = True
+            dialog.destroy()
+            root.destroy()
+
+        def nee_action():
+            dialog.destroy()
+            root.destroy()
+
+        ja_button = tk.Button(button_frame, text="Toch opzoeken", command=ja_action, width=14)
+        ja_button.pack(side='left', padx=5)
+
+        nee_button = tk.Button(button_frame, text="Annuleren", command=nee_action, width=10, default='active')
+        nee_button.pack(side='left', padx=5)
+
+        dialog.after(100, lambda: nee_button.focus_force())
+
+        nee_button.bind('<Return>', lambda e: nee_action())
+        ja_button.bind('<Return>', lambda e: ja_action())
+        dialog.bind('<Escape>', lambda e: nee_action())
+
+        dialog.mainloop()
+        return doorgaan[0]
+
+    except Exception as e:
+        print(f"[Fout] Kon invoerfilterpop-up niet tonen: {e}")
+        return True  # Bij fout toch doorgaan
+
 # --- ACTIE DIE WORDT UITGEVOERD BIJ INDRUKKEN SNELTOETS ---
 def perform_check():
     """De volledige actie: kopieer, lees klembord, start de controle en geef feedback."""
@@ -807,6 +856,19 @@ def perform_check():
         print(f"[Fout] Klembord kon niet worden gelezen: {e}")
         return
 
+    # Normaliseer typografische apostrofs voordat de filter en API worden aangeroepen
+    selected_word_norm = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", selected_word)
+    if selected_word_norm != selected_word:
+        print(f"[Info] Apostrof genormaliseerd: '{selected_word}' → '{selected_word_norm}'")
+        selected_word = selected_word_norm
+
+    # Controleer of invoer eruitziet als een geldig woord of woordgroep
+    geldig, reden = is_geldig_invoer(selected_word)
+    if not geldig:
+        print(f"[Info] Invoerfilter: {reden}")
+        if not show_invoerfilter_popup(selected_word, reden):
+            return
+
     # Voer de online check uit (nu met 7 returnwaarden)
     is_valid, checked_word, error_message, article, word_info, gender, gender_info_list = check_word_online(selected_word)
 
@@ -821,15 +883,13 @@ def perform_check():
 
 # --- HOOFDFUNCTIE ---
 def main():
-    print("--- Woordenlijst-checker v1.2.8 ---")
+    print("--- Woordenlijst-checker v1.2.9 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
-    print("Druk op 'Esc' om het script te stoppen.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
-    keyboard.wait('esc')
-    print("\n--- Script gestopt. ---")
+    threading.Event().wait()
 
 if __name__ == "__main__":
     main()
