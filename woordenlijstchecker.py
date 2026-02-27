@@ -647,6 +647,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 for lbl, url in word_labels:
                     lbl.config(fg='blue', cursor='hand2', font=("Arial", 12, "underline"))
                     lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy(), root.destroy()])
+                # Zet focus op pop-up zodat Enter het venster sluit
+                popup.focus_set()
+                popup.bind('<Return>', lambda e: [popup.destroy(), root.destroy()])
 
         auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.destroy()])
 
