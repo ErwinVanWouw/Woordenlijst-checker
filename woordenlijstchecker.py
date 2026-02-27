@@ -584,10 +584,17 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
-            first_line = f"'{word}' ({article})" if article else f"'{word}'"
-            word_lbl = tk.Label(text_frame, text=first_line, font=("Arial", 12), bg='white')
-            word_lbl.pack(anchor='w')
-            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+            if article:
+                first_line_frame = tk.Frame(text_frame, bg='white')
+                first_line_frame.pack(anchor='w')
+                word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+                word_lbl.pack(side='left')
+                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+                tk.Label(first_line_frame, text=f" ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+            else:
+                word_lbl = tk.Label(text_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+                word_lbl.pack(anchor='w')
+                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
