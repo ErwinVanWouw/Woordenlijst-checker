@@ -52,6 +52,8 @@ def is_geldig_invoer(word):
         return False, "De geselecteerde tekst bevat geen letters."
     if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/]+", word):
         return False, "De geselecteerde tekst bevat tekens die normaal niet in een Nederlands woord voorkomen."
+    if re.search(r'[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]', word):
+        return False, "De geselecteerde tekst lijkt camelCase te bevatten, wat geen normaal woordpatroon is."
     return True, None
 
 # --- CONFIGURATIE ---
