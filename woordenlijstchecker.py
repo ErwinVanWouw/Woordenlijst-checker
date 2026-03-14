@@ -39,8 +39,13 @@ def check_rate_limit():
 
     if recent > MAX_REQUESTS_PER_MINUTE:
         print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
-        messagebox.showwarning("Rate Limit",
-                              "Maximum aantal controles bereikt.\nWacht even voordat u doorgaat.\n(Max. 30 controles per minuut)")
+        done = threading.Event()
+        def _toon_ratelimit():
+            messagebox.showwarning("Rate Limit",
+                                  "Maximum aantal controles bereikt.\nWacht even voordat u doorgaat.\n(Max. 30 controles per minuut)")
+            done.set()
+        _popup_root.after(0, _toon_ratelimit)
+        done.wait()
         return False
     return True
 
@@ -542,6 +547,14 @@ def _bind_drag_save(window):
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
+    if threading.current_thread() is not threading.main_thread():
+        done = threading.Event()
+        def _dispatch():
+            show_success_popup(word, article, word_info, gender, gender_info_list)
+            done.set()
+        _popup_root.after(0, _dispatch)
+        done.wait()
+        return
     try:
         root = _popup_root
 
@@ -695,6 +708,14 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
 def show_failure_popup(word, error_message=None, alternatief_info=None):
     """Toon pop-up voor niet-gevonden woord met Ja/Nee-knoppen en klikbare suggesties"""
+    if threading.current_thread() is not threading.main_thread():
+        done = threading.Event()
+        def _dispatch():
+            show_failure_popup(word, error_message, alternatief_info)
+            done.set()
+        _popup_root.after(0, _dispatch)
+        done.wait()
+        return
     try:
         url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
 
@@ -826,6 +847,15 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
 
 def show_invoerfilter_popup(word, reden):
     """Toon waarschuwingspop-up voor ongeldige invoer; retourneert True als gebruiker toch wil opzoeken."""
+    if threading.current_thread() is not threading.main_thread():
+        result = [True]
+        done = threading.Event()
+        def _dispatch():
+            result[0] = show_invoerfilter_popup(word, reden)
+            done.set()
+        _popup_root.after(0, _dispatch)
+        done.wait()
+        return result[0]
     try:
         doorgaan = [False]
 
@@ -963,7 +993,7 @@ def main():
     _popup_root.withdraw()
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
-    threading.Event().wait()
+    _popup_root.mainloop()  # Tk-event loop draait in hoofdthread; after()-callbacks verwerken popups
 
 if __name__ == "__main__":
     main()
