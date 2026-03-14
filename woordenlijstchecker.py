@@ -21,6 +21,9 @@ import html
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
+# Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
+_popup_root = None
+
 # --- GEBRUIKSLIMIET ---
 # Track laatste requests
 request_history = deque(maxlen=100)
@@ -36,12 +39,8 @@ def check_rate_limit():
 
     if recent > MAX_REQUESTS_PER_MINUTE:
         print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
-        root = tk.Tk()
-        root.attributes('-alpha', 0)
-        root.withdraw()
         messagebox.showwarning("Rate Limit",
                               "Maximum aantal controles bereikt.\nWacht even voordat u doorgaat.\n(Max. 30 controles per minuut)")
-        root.destroy()
         return False
     return True
 
@@ -119,11 +118,8 @@ def get_popup_position(width, height):
     """Bepaal pop-uppositie; valt terug op schermcentrum als opgeslagen positie onbereikbaar is"""
     def center():
         try:
-            temp = tk.Tk()
-            temp.withdraw()
-            x = int(temp.winfo_screenwidth()/2 - width/2)
-            y = int(temp.winfo_screenheight()/2 - height/2)
-            temp.destroy()
+            x = int(_popup_root.winfo_screenwidth()/2 - width/2)
+            y = int(_popup_root.winfo_screenheight()/2 - height/2)
             return x, y
         except Exception as e:
             print(f"[Waarschuwing] Kon centrumpositie niet bepalen: {e}")
@@ -132,21 +128,13 @@ def get_popup_position(width, height):
     if POPUP_X == -1 or POPUP_Y == -1:
         return center()
 
-    # Test of positie werkelijk zichtbaar is
+    # Valideer of opgeslagen positie binnen schermgrenzen valt
     try:
-        test = tk.Tk()
-        test.withdraw()
-        test.geometry(f"1x1+{POPUP_X}+{POPUP_Y}")
-        test.update()
-        actual_x = test.winfo_x()
-        actual_y = test.winfo_y()
-        test.destroy()
-
-        # Als Windows positie heeft aangepast (>100px verschil)
-        if abs(actual_x - POPUP_X) > 100 or abs(actual_y - POPUP_Y) > 100:
+        sw = _popup_root.winfo_screenwidth()
+        sh = _popup_root.winfo_screenheight()
+        if POPUP_X + width > sw + 100 or POPUP_Y + height > sh + 100 or POPUP_X < -100 or POPUP_Y < -100:
             print("[Info] Opgeslagen positie niet bereikbaar, gebruik centrum")
             return center()
-
         return POPUP_X, POPUP_Y
 
     except Exception as e:
@@ -555,9 +543,7 @@ def _bind_drag_save(window):
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
     try:
-        root = tk.Tk()
-        root.attributes('-alpha', 0)
-        root.withdraw()
+        root = _popup_root
 
         # Maak aangepast pop-upvenster
         popup = tk.Toplevel(root)
@@ -686,12 +672,12 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 # Maak woordlabels klikbaar als hyperlink
                 for lbl, url in word_labels:
                     lbl.config(fg='blue', cursor='hand2', font=("Arial", 12, "underline"))
-                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy(), root.destroy()])
+                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy(), root.quit()])
                 # Zet focus op pop-up zodat Enter het venster sluit
                 popup.focus_set()
-                popup.bind('<Return>', lambda e: [popup.destroy(), root.destroy()])
+                popup.bind('<Return>', lambda e: [popup.destroy(), root.quit()])
 
-        auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.destroy()])
+        auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.quit()])
 
         # Bind linkermuisklik op pop-up en alle child-widgets om timer te annuleren
         def bind_click_to_cancel(widget):
@@ -712,9 +698,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
     try:
         url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
 
-        root = tk.Tk()
-        root.attributes('-alpha', 0)
-        root.withdraw()
+        root = _popup_root
 
         # Custom dialog
         dialog = tk.Toplevel(root)
@@ -777,7 +761,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     """Open suggestielink en sluit pop-up"""
                     webbrowser.open_new_tab(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
                     dialog.destroy()
-                    root.destroy()
+                    root.quit()
 
                 for suggestion in suggestions[:3]:
                     link = tk.Label(
@@ -802,7 +786,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
             )
             alt_link.pack(pady=(0, 5))
-            alt_link.bind("<Button-1>", lambda e: [webbrowser.open_new_tab(alt_url), dialog.destroy(), root.destroy()])
+            alt_link.bind("<Button-1>", lambda e: [webbrowser.open_new_tab(alt_url), dialog.destroy(), root.quit()])
 
         # Vraag om website te openen
         tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
@@ -814,11 +798,11 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         def yes_action():
             webbrowser.open_new_tab(url_to_open)
             dialog.destroy()
-            root.destroy()
+            root.quit()
 
         def no_action():
             dialog.destroy()
-            root.destroy()
+            root.quit()
 
         yes_button = tk.Button(button_frame, text="Ja", command=yes_action, width=8)
         yes_button.pack(side='left', padx=5)
@@ -845,9 +829,7 @@ def show_invoerfilter_popup(word, reden):
     try:
         doorgaan = [False]
 
-        root = tk.Tk()
-        root.attributes('-alpha', 0)
-        root.withdraw()
+        root = _popup_root
 
         dialog = tk.Toplevel(root)
         dialog.title("Ongebruikelijke invoer")
@@ -871,11 +853,11 @@ def show_invoerfilter_popup(word, reden):
         def ja_action():
             doorgaan[0] = True
             dialog.destroy()
-            root.destroy()
+            root.quit()
 
         def nee_action():
             dialog.destroy()
-            root.destroy()
+            root.quit()
 
         ja_button = tk.Button(button_frame, text="Toch opzoeken", command=ja_action, width=14)
         ja_button.pack(side='left', padx=5)
@@ -967,10 +949,18 @@ def perform_check():
 
 # --- HOOFDFUNCTIE ---
 def main():
+    global _popup_root
     print("--- Woordenlijst-checker v1.2.8 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
+
+    # Maak één permanente verborgen Tk-root aan vóór de hotkey-listener start.
+    # Door dit in de hoofdthread te doen en nooit te vernietigen, verdwijnt het
+    # flikkerende lege venster dat eerder bij elke popup even zichtbaar was.
+    _popup_root = tk.Tk()
+    _popup_root.attributes('-alpha', 0)
+    _popup_root.withdraw()
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
     threading.Event().wait()
