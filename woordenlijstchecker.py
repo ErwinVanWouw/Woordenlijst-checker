@@ -499,13 +499,18 @@ def check_prisma_alternatief(word):
         cid = unitname_match.group(1)
         unitname_html = unitname_match.group(2)
 
-        if '<span class="la">alternatief</span>' not in unitname_html:
+        # Type A: 'alternatief' label staat in de unitname div zelf
+        # Type B: 'alternatief' label staat elders op de pagina (unitname is de alternatieve vorm)
+        type_a = '<span class="la">alternatief</span>' in unitname_html
+        type_b = not type_a and '<span class="la">alternatief</span>' in r.text
+
+        if not type_a and not type_b:
             return None
 
         alt_word = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
 
         lref_match = re.search(r'<a href="[^"]+" class="lref">([^<]+)</a>', r.text)
-        officiele_spelling = lref_match.group(1) if lref_match else None
+        officiele_spelling = html.unescape(lref_match.group(1)) if lref_match else None
 
         url = f"{base}/?id=-827&cid={cid}&unitsearch={quote(word)}"
         print(f"[Prisma] Alternatief gevonden: '{alt_word}' (officieel: {officiele_spelling})")
