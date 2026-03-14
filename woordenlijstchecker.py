@@ -778,7 +778,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         # Alternatieve witte spelling (Prisma)
         if alternatief_info:
             alt_word, _, alt_url = alternatief_info
-            tk.Label(dialog, text="Witte spelling:", font=("Arial", 10, "italic"), pady=(5, 0)).pack()
+            tk.Label(dialog, text="Witte spelling:", font=("Arial", 10, "italic")).pack(pady=(5, 0))
             alt_link = tk.Label(
                 dialog, text=alt_word,
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
