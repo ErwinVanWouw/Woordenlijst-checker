@@ -37,6 +37,7 @@ def check_rate_limit():
     if recent > MAX_REQUESTS_PER_MINUTE:
         print("[Waarschuwing] Te veel aanvragen (max. 30/minuut), wacht even...")
         root = tk.Tk()
+        root.attributes('-alpha', 0)
         root.withdraw()
         messagebox.showwarning("Rate Limit",
                               "Maximum aantal controles bereikt.\nWacht even voordat u doorgaat.\n(Max. 30 controles per minuut)")
@@ -512,6 +513,11 @@ def check_prisma_alternatief(word):
         lref_match = re.search(r'<a href="[^"]+" class="lref">([^<]+)</a>', r.text)
         officiele_spelling = html.unescape(lref_match.group(1)) if lref_match else None
 
+        # Als de gebruiker al de officiële spelling heeft ingevoerd, niet als alternatief markeren
+        if officiele_spelling and word == officiele_spelling:
+            print(f"[Prisma] '{word}' is de officiële spelling, geen alternatief")
+            return None
+
         url = f"{base}/?id=-827&cid={cid}&unitsearch={quote(word)}"
         print(f"[Prisma] Alternatief gevonden: '{alt_word}' (officieel: {officiele_spelling})")
         return alt_word, officiele_spelling, url
@@ -546,6 +552,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
     try:
         root = tk.Tk()
+        root.attributes('-alpha', 0)
         root.withdraw()
 
         # Maak aangepast pop-upvenster
@@ -702,6 +709,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
 
         root = tk.Tk()
+        root.attributes('-alpha', 0)
         root.withdraw()
 
         # Custom dialog
@@ -834,6 +842,7 @@ def show_invoerfilter_popup(word, reden):
         doorgaan = [False]
 
         root = tk.Tk()
+        root.attributes('-alpha', 0)
         root.withdraw()
 
         dialog = tk.Toplevel(root)
