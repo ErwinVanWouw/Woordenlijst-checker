@@ -685,12 +685,12 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 # Maak woordlabels klikbaar als hyperlink
                 for lbl, url in word_labels:
                     lbl.config(fg='blue', cursor='hand2', font=("Arial", 12, "underline"))
-                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy(), root.quit()])
+                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy()])
                 # Zet focus op pop-up zodat Enter het venster sluit
                 popup.focus_set()
-                popup.bind('<Return>', lambda e: [popup.destroy(), root.quit()])
+                popup.bind('<Return>', lambda e: popup.destroy())
 
-        auto_close[0] = popup.after(3000, lambda: [popup.destroy(), root.quit()])
+        auto_close[0] = popup.after(3000, popup.destroy)
 
         # Bind linkermuisklik op pop-up en alle child-widgets om timer te annuleren
         def bind_click_to_cancel(widget):
@@ -701,7 +701,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         bind_click_to_cancel(popup)
 
         # Start de GUI-loop
-        popup.mainloop()
+        root.wait_window(popup)
 
     except Exception as e:
         print(f"[Fout] Kon succespop-up niet tonen: {e}")
@@ -782,7 +782,6 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     """Open suggestielink en sluit pop-up"""
                     webbrowser.open_new_tab(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
                     dialog.destroy()
-                    root.quit()
 
                 for suggestion in suggestions[:3]:
                     link = tk.Label(
@@ -807,7 +806,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
             )
             alt_link.pack(pady=(0, 5))
-            alt_link.bind("<Button-1>", lambda e: [webbrowser.open_new_tab(alt_url), dialog.destroy(), root.quit()])
+            alt_link.bind("<Button-1>", lambda e: [webbrowser.open_new_tab(alt_url), dialog.destroy()])
 
         # Vraag om website te openen
         tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
@@ -819,11 +818,9 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         def yes_action():
             webbrowser.open_new_tab(url_to_open)
             dialog.destroy()
-            root.quit()
 
         def no_action():
             dialog.destroy()
-            root.quit()
 
         yes_button = tk.Button(button_frame, text="Ja", command=yes_action, width=8)
         yes_button.pack(side='left', padx=5)
@@ -840,7 +837,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         yes_button.bind('<Return>', lambda e: yes_action())
         dialog.bind('<Escape>', lambda e: no_action())
 
-        dialog.mainloop()
+        root.wait_window(dialog)
 
     except Exception as e:
         print(f"[Fout] Kon foutpop-up niet tonen: {e}")
@@ -883,11 +880,9 @@ def show_invoerfilter_popup(word, reden):
         def ja_action():
             doorgaan[0] = True
             dialog.destroy()
-            root.quit()
 
         def nee_action():
             dialog.destroy()
-            root.quit()
 
         ja_button = tk.Button(button_frame, text="Toch opzoeken", command=ja_action, width=14)
         ja_button.pack(side='left', padx=5)
@@ -901,7 +896,7 @@ def show_invoerfilter_popup(word, reden):
         ja_button.bind('<Return>', lambda e: ja_action())
         dialog.bind('<Escape>', lambda e: nee_action())
 
-        dialog.mainloop()
+        root.wait_window(dialog)
         return doorgaan[0]
 
     except Exception as e:
