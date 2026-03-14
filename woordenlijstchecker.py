@@ -500,22 +500,26 @@ def check_prisma_alternatief(word):
         cid = unitname_match.group(1)
         unitname_html = unitname_match.group(2)
 
-        # Type A: 'alternatief' label staat in de unitname div zelf
-        # Type B: 'alternatief' label staat elders op de pagina (unitname is de alternatieve vorm)
+        # Type A: 'alternatief' label staat in de unitname div zelf (unitname = witte, lref = groene)
+        # Type B: 'alternatief' label staat elders op de pagina (unitname = groene, lref = witte)
         type_a = '<span class="la">alternatief</span>' in unitname_html
         type_b = not type_a and '<span class="la">alternatief</span>' in r.text
 
         if not type_a and not type_b:
             return None
 
-        alt_word = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
-
         lref_match = re.search(r'<a href="[^"]+" class="lref">([^<]+)</a>', r.text)
-        officiele_spelling = html.unescape(lref_match.group(1)) if lref_match else None
 
-        # Als de gebruiker al de officiële spelling heeft ingevoerd, niet als alternatief markeren
-        if officiele_spelling and word == officiele_spelling:
-            print(f"[Prisma] '{word}' is de officiële spelling, geen alternatief")
+        if type_a:
+            # Type A: unitname = witte spelling, lref = groene spelling
+            alt_word = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
+            officiele_spelling = html.unescape(lref_match.group(1)) if lref_match else None
+        else:
+            # Type B: lref = witte spelling, unitname = groene spelling
+            alt_word = html.unescape(lref_match.group(1)) if lref_match else None
+            officiele_spelling = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
+
+        if not alt_word:
             return None
 
         url = f"{base}/?id=-827&cid={cid}&unitsearch={quote(word)}"
