@@ -32,21 +32,26 @@ try:
 except Exception as e:
     print(f"Fout: {e}")
 
-print("\n=== Result endpoint (standby) ===")
-try:
-    r2 = session.get(
-        BASE + "/?id=-827&unitsearch=standby",
-        timeout=5
-    )
-    print(f"Status: {r2.status_code}")
-    print(f"Content-Type: {r2.headers.get('Content-Type')}")
-    hits = re.findall(r'<div class="unitname"[^>]*>.*?</div>', r2.text, re.DOTALL)
-    if hits:
-        print(f"\nGevonden unitname divs ({len(hits)}):")
-        for h in hits:
-            print(h)
-    else:
-        print("\nGeen unitname divs gevonden. Eerste 2000 tekens:")
-        print(r2.text[:2000])
-except Exception as e:
-    print(f"Fout: {e}")
+def test_result(woord):
+    print(f"\n=== Result endpoint ({woord}) ===")
+    try:
+        r = session.get(BASE + f"/?id=-827&unitsearch={woord}", timeout=5)
+        print(f"Status: {r.status_code}")
+        hits = re.findall(r'<div class="unitname"[^>]*>.*?</div>', r.text, re.DOTALL)
+        if hits:
+            print(f"Gevonden unitname divs ({len(hits)}):")
+            for h in hits:
+                print(h)
+            # Zoek ook naar officiële spelling (lref)
+            lrefs = re.findall(r'<a href="([^"]+)" class="lref">([^<]+)</a>', r.text)
+            if lrefs:
+                print(f"Officiële spelling (lref): {lrefs}")
+        else:
+            print("Geen unitname divs gevonden — geen resultaat of ander formaat.")
+            print(r.text[:500])
+    except Exception as e:
+        print(f"Fout: {e}")
+
+test_result("standby")    # alternatief
+test_result("fiets")      # gewoon woord
+test_result("xyzqqqq")    # niet-bestaand woord
