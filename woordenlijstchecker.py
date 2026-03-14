@@ -501,7 +501,7 @@ def check_prisma_alternatief(word):
         if '<span class="la">alternatief</span>' not in unitname_html:
             return None
 
-        alt_word = re.sub(r'<[^>]+>', '', unitname_html).strip()
+        alt_word = re.sub(r'<.*', '', unitname_html).strip()
 
         lref_match = re.search(r'<a href="[^"]+" class="lref">([^<]+)</a>', r.text)
         officiele_spelling = lref_match.group(1) if lref_match else None
@@ -778,7 +778,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         # Alternatieve witte spelling (Prisma)
         if alternatief_info:
             alt_word, _, alt_url = alternatief_info
-            tk.Label(dialog, text="Witte spelling:", font=("Arial", 10, "italic")).pack(pady=(5, 0))
+            tk.Label(dialog, text="Alternatieve witte spelling:", font=("Arial", 10, "italic")).pack(pady=(5, 0))
             alt_link = tk.Label(
                 dialog, text=alt_word,
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
