@@ -470,6 +470,50 @@ def get_spelling_suggestions(word):
         print(f"[Waarschuwing] Kon geen suggesties ophalen: {e}")
         return None
 
+# --- PRISMA ALTERNATIEVE SPELLING ---
+def check_prisma_alternatief(word):
+    """Controleer of een woord een alternatieve spelling is op spelling.prisma.nl.
+    Retourneert (alternatief_woord, officiele_spelling, url) of None als er geen alternatief is."""
+    try:
+        base = "https://spelling.prisma.nl"
+        sess = requests.Session()
+        sess.headers.update({
+            "User-Agent": "Mozilla/5.0",
+            "Referer": base + "/",
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+        })
+        sess.get(base + "/", timeout=5)
+
+        r = sess.get(f"{base}/?id=-827&unitsearch={quote(word)}", timeout=5)
+        r.raise_for_status()
+
+        unitname_match = re.search(
+            r'<div class="unitname"[^>]*id="U(\d+)"[^>]*>(.*?)</div>',
+            r.text, re.DOTALL
+        )
+        if not unitname_match:
+            return None
+
+        cid = unitname_match.group(1)
+        unitname_html = unitname_match.group(2)
+
+        if '<span class="la">alternatief</span>' not in unitname_html:
+            return None
+
+        alt_word = re.sub(r'<[^>]+>', '', unitname_html).strip()
+
+        lref_match = re.search(r'<a href="[^"]+" class="lref">([^<]+)</a>', r.text)
+        officiele_spelling = lref_match.group(1) if lref_match else None
+
+        url = f"{base}/?id=-827&cid={cid}&unitsearch={quote(word)}"
+        print(f"[Prisma] Alternatief gevonden: '{alt_word}' (officieel: {officiele_spelling})")
+        return alt_word, officiele_spelling, url
+
+    except Exception as e:
+        print(f"[Waarschuwing] Kon Prisma niet raadplegen: {e}")
+        return None
+
 # --- GEDEELDE POPUP HULPFUNCTIES ---
 def _set_icon(window):
     """Stel favicon.ico in op een tkinter-venster (werkt zowel als .py als .exe)"""
@@ -646,7 +690,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
     except Exception as e:
         print(f"[Fout] Kon succespop-up niet tonen: {e}")
 
-def show_failure_popup(word, error_message=None):
+def show_failure_popup(word, error_message=None, alternatief_info=None):
     """Toon pop-up voor niet-gevonden woord met Ja/Nee-knoppen en klikbare suggesties"""
     try:
         url_to_open = f"https://woordenlijst.org/zoeken/?q={quote(word)}"
@@ -680,6 +724,9 @@ def show_failure_popup(word, error_message=None):
         else:
             # Bij geen foutmelding
             extra_height = 0
+
+        if alternatief_info:
+            extra_height += 50
 
         total_height = base_height + extra_height
 
@@ -727,6 +774,17 @@ def show_failure_popup(word, error_message=None):
             else:
                 # Normale foutmelding (zoals "Gebruik 'pH'")
                 tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
+
+        # Alternatieve witte spelling (Prisma)
+        if alternatief_info:
+            alt_word, _, alt_url = alternatief_info
+            tk.Label(dialog, text="Witte spelling:", font=("Arial", 10, "italic"), pady=(5, 0)).pack()
+            alt_link = tk.Label(
+                dialog, text=alt_word,
+                fg="blue", cursor="hand2", font=("Arial", 10, "underline")
+            )
+            alt_link.pack(pady=(0, 5))
+            alt_link.bind("<Button-1>", lambda e: [webbrowser.open_new_tab(alt_url), dialog.destroy(), root.destroy()])
 
         # Vraag om website te openen
         tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
@@ -869,17 +927,24 @@ def perform_check():
         if not show_invoerfilter_popup(selected_word, reden):
             return
 
+    # Start Prisma-check parallel met woordenlijst.org-check
+    prisma_result = [None]
+    prisma_thread = threading.Thread(
+        target=lambda: prisma_result.__setitem__(0, check_prisma_alternatief(selected_word))
+    )
+    prisma_thread.start()
+
     # Voer de online check uit (nu met 7 returnwaarden)
     is_valid, checked_word, error_message, article, word_info, gender, gender_info_list = check_word_online(selected_word)
 
     # Geef feedback op basis van het resultaat
     if is_valid:
-        # Toon pop-up met groen vinkje en optioneel lidwoord
+        prisma_thread.join(timeout=0)  # Niet afwachten bij succes
         show_success_popup(checked_word, article, word_info, gender, gender_info_list)
     else:
-        # Toon pop-up met Ja/Nee-opties en specifieke foutmelding
+        prisma_thread.join(timeout=6)  # Wacht max 6 seconden op Prisma
         if checked_word:
-            show_failure_popup(checked_word, error_message)
+            show_failure_popup(checked_word, error_message, prisma_result[0])
 
 # --- HOOFDFUNCTIE ---
 def main():
