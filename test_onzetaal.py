@@ -35,23 +35,28 @@ except Exception as e:
 def test_result(woord):
     print(f"\n=== Result endpoint ({woord}) ===")
     try:
-        r = session.get(BASE + f"/?id=-827&unitsearch={woord}", timeout=5)
+        from urllib.parse import quote
+        r = session.get(BASE + f"/?id=-827&unitsearch={quote(woord)}", timeout=5)
         print(f"Status: {r.status_code}")
         hits = re.findall(r'<div class="unitname"[^>]*>.*?</div>', r.text, re.DOTALL)
         if hits:
             print(f"Gevonden unitname divs ({len(hits)}):")
             for h in hits:
-                print(h)
+                print(repr(h))
+            # Zoek alle span.la labels
+            labels = re.findall(r'<span class="la">([^<]+)</span>', r.text)
+            print(f"Labels (span.la): {labels}")
             # Zoek ook naar officiële spelling (lref)
             lrefs = re.findall(r'<a href="([^"]+)" class="lref">([^<]+)</a>', r.text)
             if lrefs:
                 print(f"Officiële spelling (lref): {lrefs}")
         else:
             print("Geen unitname divs gevonden — geen resultaat of ander formaat.")
-            print(r.text[:500])
+            print(r.text[:300])
     except Exception as e:
         print(f"Fout: {e}")
 
 test_result("standby")    # alternatief
-test_result("fiets")      # gewoon woord
-test_result("xyzqqqq")    # niet-bestaand woord
+test_result("persé")      # HTML-entiteit check
+test_result("dédain")     # niet gevonden als alternatief?
+test_result("dedain")     # zonder accent, als fallback
