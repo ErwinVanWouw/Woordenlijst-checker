@@ -56,7 +56,11 @@ def test_result(woord):
     except Exception as e:
         print(f"Fout: {e}")
 
-test_result("standby")    # alternatief
-test_result("persé")      # HTML-entiteit check
-test_result("dédain")     # niet gevonden als alternatief?
-test_result("dedain")     # zonder accent, als fallback
+test_result("standby")      # alternatief (basis)
+test_result("persé")        # HTML-entiteit check
+test_result("dédain")       # accent in woord
+test_result("dedain")       # zonder accent, als fallback
+test_result("deëscalatie")  # trema
+test_result("deescalatie")  # zonder trema, als fallback
+test_result("Oud en Nieuw") # hoofdletters + spaties
+test_result("oud en nieuw") # volledig lowercase

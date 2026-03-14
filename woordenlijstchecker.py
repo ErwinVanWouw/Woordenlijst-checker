@@ -16,6 +16,7 @@ import os
 from collections import deque
 import re
 import sys
+import html
 
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -501,7 +502,7 @@ def check_prisma_alternatief(word):
         if '<span class="la">alternatief</span>' not in unitname_html:
             return None
 
-        alt_word = re.sub(r'<.*', '', unitname_html).strip()
+        alt_word = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
 
         lref_match = re.search(r'<a href="[^"]+" class="lref">([^<]+)</a>', r.text)
         officiele_spelling = lref_match.group(1) if lref_match else None
