@@ -17,12 +17,191 @@ from collections import deque
 import re
 import sys
 import html
+import ctypes
+from ctypes import wintypes
 
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
+
+# --- SYSTEEMVAK (Win32 via ctypes) ---
+_WM_TRAY          = 0x0401  # WM_USER + 1
+_WM_RBUTTONUP     = 0x0205
+_WM_LBUTTONDBLCLK = 0x0203
+_WM_NULL          = 0x0000
+_NIM_ADD          = 0
+_NIM_DELETE       = 2
+_NIF_ICON         = 0x1
+_NIF_MSG          = 0x2
+_NIF_TIP          = 0x4
+_ID_HELP          = 1001
+_ID_INSTELLINGEN  = 1002
+_ID_AFSLUITEN     = 1003
+_MF_STRING        = 0x0
+_MF_SEPARATOR     = 0x800
+_MF_GRAYED        = 0x1
+_TPM_BOTTOMALIGN  = 0x20
+_TPM_RIGHTALIGN   = 0x8
+_TPM_RETURNCMD    = 0x100
+_tray_hwnd        = None
+
+
+class _NOTIFYICONDATA(ctypes.Structure):
+    _fields_ = [
+        ('cbSize',           wintypes.DWORD),
+        ('hWnd',             wintypes.HWND),
+        ('uID',              wintypes.UINT),
+        ('uFlags',           wintypes.UINT),
+        ('uCallbackMessage', wintypes.UINT),
+        ('hIcon',            wintypes.HANDLE),
+        ('szTip',            ctypes.c_wchar * 128),
+    ]
+
+
+_WNDPROC = ctypes.WINFUNCTYPE(
+    ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+)
+
+
+class _WNDCLASSEX(ctypes.Structure):
+    _fields_ = [
+        ('cbSize',        wintypes.UINT),
+        ('style',         wintypes.UINT),
+        ('lpfnWndProc',   _WNDPROC),
+        ('cbClsExtra',    ctypes.c_int),
+        ('cbWndExtra',    ctypes.c_int),
+        ('hInstance',     wintypes.HANDLE),
+        ('hIcon',         wintypes.HANDLE),
+        ('hCursor',       wintypes.HANDLE),
+        ('hbrBackground', wintypes.HANDLE),
+        ('lpszMenuName',  wintypes.LPCWSTR),
+        ('lpszClassName', wintypes.LPCWSTR),
+        ('hIconSm',       wintypes.HANDLE),
+    ]
+
+
+def _wndproc_impl(hwnd, msg, wparam, lparam):
+    if msg == _WM_TRAY:
+        if lparam == _WM_RBUTTONUP:
+            _toon_tray_menu(hwnd)
+        elif lparam == _WM_LBUTTONDBLCLK:
+            if _popup_root:
+                _popup_root.after(0, lambda: threading.Thread(target=show_help_popup).start())
+    return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+
+_wndproc_ref = _WNDPROC(_wndproc_impl)
+
+
+def _maak_tray_venster():
+    """Maak een onzichtbaar message-only venster aan voor de tray-callback."""
+    CLASS_NAME = "WC_WrdlstChecker_Tray"
+    hInstance = ctypes.windll.kernel32.GetModuleHandleW(None)
+    wc = _WNDCLASSEX()
+    wc.cbSize = ctypes.sizeof(_WNDCLASSEX)
+    wc.lpfnWndProc = _wndproc_ref
+    wc.hInstance = hInstance
+    wc.lpszClassName = CLASS_NAME
+    ctypes.windll.user32.RegisterClassExW(ctypes.byref(wc))
+    HWND_MESSAGE = -3
+    hwnd = ctypes.windll.user32.CreateWindowExW(
+        0, CLASS_NAME, "Tray", 0,
+        0, 0, 0, 0,
+        HWND_MESSAGE, None, hInstance, None
+    )
+    return hwnd
+
+
+def _voeg_tray_icoon_toe(hwnd):
+    """Voeg het systeemvakicoon toe via Shell_NotifyIcon."""
+    global _tray_hwnd
+    _tray_hwnd = hwnd
+    icon_path = (os.path.join(sys._MEIPASS, "favicon.ico")
+                 if hasattr(sys, '_MEIPASS') else "favicon.ico")
+    if os.path.exists(icon_path):
+        hIcon = ctypes.windll.user32.LoadImageW(
+            None, icon_path, 1, 16, 16, 0x10  # IMAGE_ICON, LR_LOADFROMFILE
+        )
+    else:
+        hIcon = ctypes.windll.user32.LoadIconW(None, 32512)  # IDI_APPLICATION
+    nid = _NOTIFYICONDATA()
+    nid.cbSize = ctypes.sizeof(_NOTIFYICONDATA)
+    nid.hWnd = hwnd
+    nid.uID = 1
+    nid.uFlags = _NIF_ICON | _NIF_MSG | _NIF_TIP
+    nid.uCallbackMessage = _WM_TRAY
+    nid.hIcon = hIcon
+    nid.szTip = "Woordenlijst-checker"
+    ctypes.windll.shell32.Shell_NotifyIconW(_NIM_ADD, ctypes.byref(nid))
+
+
+def _verwijder_tray_icoon(hwnd):
+    """Verwijder het systeemvakicoon."""
+    nid = _NOTIFYICONDATA()
+    nid.cbSize = ctypes.sizeof(_NOTIFYICONDATA)
+    nid.hWnd = hwnd
+    nid.uID = 1
+    ctypes.windll.shell32.Shell_NotifyIconW(_NIM_DELETE, ctypes.byref(nid))
+
+
+def _toon_tray_menu(hwnd):
+    """Toon het rechtsklimmenu bij het systeemvakicoon."""
+    hmenu = ctypes.windll.user32.CreatePopupMenu()
+    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING | _MF_GRAYED, 0, "Woordenlijst-checker v1.2.8")
+    ctypes.windll.user32.AppendMenuW(hmenu, _MF_SEPARATOR, 0, None)
+    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING, _ID_HELP, "Help  (Ctrl+F9)")
+    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING, _ID_INSTELLINGEN, "Instellingen...")
+    ctypes.windll.user32.AppendMenuW(hmenu, _MF_SEPARATOR, 0, None)
+    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING, _ID_AFSLUITEN, "Afsluiten")
+    pt = wintypes.POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+    ctypes.windll.user32.SetForegroundWindow(hwnd)
+    cmd = ctypes.windll.user32.TrackPopupMenu(
+        hmenu,
+        _TPM_BOTTOMALIGN | _TPM_RIGHTALIGN | _TPM_RETURNCMD,
+        pt.x, pt.y, 0, hwnd, None
+    )
+    ctypes.windll.user32.DestroyMenu(hmenu)
+    ctypes.windll.user32.PostMessageW(hwnd, _WM_NULL, 0, 0)
+    if cmd == _ID_HELP and _popup_root:
+        _popup_root.after(0, lambda: threading.Thread(target=show_help_popup).start())
+    elif cmd == _ID_INSTELLINGEN and _popup_root:
+        _popup_root.after(0, lambda: threading.Thread(target=show_config_popup).start())
+    elif cmd == _ID_AFSLUITEN:
+        if _popup_root:
+            _popup_root.after(0, _sluit_af)
+
+
+def _sluit_af():
+    """Sluit de applicatie netjes af vanuit de hoofdthread."""
+    global _tray_hwnd
+    try:
+        keyboard.unhook_all()
+    except Exception:
+        pass
+    if _tray_hwnd:
+        ctypes.windll.user32.PostMessageW(_tray_hwnd, 0x0012, 0, 0)  # WM_QUIT
+    _popup_root.quit()
+
+
+def _tray_loop():
+    """Win32-berichtlus voor het systeemvakicoon; draait in een aparte thread."""
+    try:
+        hwnd = _maak_tray_venster()
+        if not hwnd:
+            print("[Fout] Systeemvakvenster kon niet worden aangemaakt.")
+            return
+        _voeg_tray_icoon_toe(hwnd)
+        print("[Info] Systeemvakicoon actief. Rechtskllik op het icoon voor opties.")
+        msg = wintypes.MSG()
+        while ctypes.windll.user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
+            ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
+            ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
+        _verwijder_tray_icoon(hwnd)
+    except Exception as e:
+        print(f"[Fout] Systeemvak-thread: {e}")
 
 # --- GEBRUIKSLIMIET ---
 # Track laatste requests
@@ -544,6 +723,191 @@ def _bind_drag_save(window):
                 print(f"[Info] Nieuwe pop-uppositie opgeslagen: {new_x}, {new_y}")
     window.bind('<Configure>', on_drag_end)
 
+
+def _get_readme_path():
+    """Retourneert het pad naar README.md (werkt zowel als .py als .exe)."""
+    base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, 'README.md')
+
+
+def _render_inline(text_widget, line, link_counter):
+    """Render een tekstregel met inline markdown-links naar een tkinter Text-widget."""
+    pattern = r'\[([^\]]+)\]\(([^)]+)\)|(https?://\S+)'
+    last_end = 0
+    for m in re.finditer(pattern, line):
+        if m.start() > last_end:
+            text_widget.insert('end', line[last_end:m.start()], 'normal')
+        tag = f'link_{link_counter[0]}'
+        link_counter[0] += 1
+        if m.group(1):
+            link_text, link_url = m.group(1), m.group(2)
+        else:
+            link_url = m.group(3).rstrip()
+            link_text = link_url
+        text_widget.tag_configure(tag, foreground='blue', underline=True)
+        text_widget.insert('end', link_text, tag)
+        text_widget.tag_bind(tag, '<Button-1>', lambda e, u=link_url: webbrowser.open_new_tab(u))
+        last_end = m.end()
+    if last_end < len(line):
+        text_widget.insert('end', line[last_end:], 'normal')
+
+
+def show_help_popup():
+    """Toon een scrollbaar help-venster op basis van README.md."""
+    if threading.current_thread() is not threading.main_thread():
+        done = threading.Event()
+        def _dispatch():
+            show_help_popup()
+            done.set()
+        _popup_root.after(0, _dispatch)
+        done.wait()
+        return
+    try:
+        popup = tk.Toplevel(_popup_root)
+        popup.title("Help — Woordenlijst-checker")
+        popup.resizable(True, True)
+        popup.attributes('-topmost', True)
+        _set_icon(popup)
+        popup_width, popup_height = 540, 460
+        x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
+        y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
+        popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+
+        frame = tk.Frame(popup)
+        frame.pack(fill='both', expand=True, padx=10, pady=(10, 5))
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side='right', fill='y')
+        text = tk.Text(
+            frame, wrap='word', yscrollcommand=scrollbar.set,
+            font=("Arial", 10), padx=10, pady=5,
+            cursor='arrow', state='normal', relief='flat', borderwidth=0
+        )
+        text.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=text.yview)
+
+        text.tag_configure('h1', font=("Arial", 14, "bold"), spacing1=10, spacing3=4)
+        text.tag_configure('h2', font=("Arial", 11, "bold"), spacing1=8, spacing3=2)
+        text.tag_configure('normal', font=("Arial", 10))
+
+        readme_path = _get_readme_path()
+        if os.path.exists(readme_path):
+            with open(readme_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            link_counter = [0]
+            for line in lines:
+                stripped = line.rstrip('\n').rstrip()
+                if stripped.startswith('# '):
+                    text.insert('end', stripped[2:] + '\n', 'h1')
+                elif stripped.startswith('## '):
+                    text.insert('end', stripped[3:] + '\n', 'h2')
+                elif stripped.startswith('- '):
+                    _render_inline(text, '•  ' + stripped[2:] + '\n', link_counter)
+                elif stripped == '':
+                    text.insert('end', '\n', 'normal')
+                else:
+                    _render_inline(text, stripped + '\n', link_counter)
+        else:
+            text.insert('end', 'README.md niet gevonden.', 'normal')
+
+        text.config(state='disabled')
+        tk.Button(popup, text="Sluiten", command=popup.destroy, width=10).pack(pady=(0, 10))
+        popup.bind('<Escape>', lambda e: popup.destroy())
+        _popup_root.wait_window(popup)
+    except Exception as e:
+        print(f"[Fout] Kon helppop-up niet tonen: {e}")
+
+
+def show_config_popup():
+    """Toon instellingenvenster voor sneltoets en pop-uppositie."""
+    if threading.current_thread() is not threading.main_thread():
+        done = threading.Event()
+        def _dispatch():
+            show_config_popup()
+            done.set()
+        _popup_root.after(0, _dispatch)
+        done.wait()
+        return
+    try:
+        global HOTKEY, POPUP_X, POPUP_Y
+        popup = tk.Toplevel(_popup_root)
+        popup.title("Instellingen")
+        popup.resizable(False, False)
+        popup.attributes('-topmost', True)
+        _set_icon(popup)
+        popup_width, popup_height = 380, 210
+        x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
+        y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
+        popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+
+        tk.Label(popup, text="Sneltoets:", font=("Arial", 10)).grid(
+            row=0, column=0, padx=15, pady=(20, 5), sticky='e')
+        hotkey_var = tk.StringVar(value=HOTKEY)
+        hotkey_entry = tk.Entry(popup, textvariable=hotkey_var, width=20, font=("Arial", 10))
+        hotkey_entry.grid(row=0, column=1, padx=10, pady=(20, 5), sticky='w')
+
+        status_label = tk.Label(popup, text="", font=("Arial", 9), fg='gray')
+        status_label.grid(row=1, column=0, columnspan=2, pady=(0, 5))
+
+        def sla_hotkey_op():
+            global HOTKEY
+            new_hotkey = hotkey_var.get().strip().lower()
+            if not new_hotkey:
+                status_label.config(text="Sneltoets mag niet leeg zijn.", fg='red')
+                return
+            try:
+                keyboard.remove_hotkey(HOTKEY)
+            except Exception:
+                pass
+            try:
+                keyboard.add_hotkey(new_hotkey, lambda: threading.Thread(target=perform_check).start())
+                HOTKEY = new_hotkey
+                config = configparser.ConfigParser()
+                config.read(CONFIG_FILE)
+                if 'Settings' not in config:
+                    config['Settings'] = {}
+                config['Settings']['hotkey'] = new_hotkey
+                with open(CONFIG_FILE, 'w') as f:
+                    config.write(f)
+                status_label.config(text=f"Opgeslagen: '{new_hotkey}'", fg='green')
+                print(f"[Config] Sneltoets gewijzigd naar: '{new_hotkey}'")
+            except Exception as e:
+                status_label.config(text="Ongeldige sneltoets.", fg='red')
+                print(f"[Config] Ongeldige sneltoets '{new_hotkey}': {e}")
+                try:
+                    keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
+                except Exception:
+                    pass
+
+        def reset_positie():
+            global POPUP_X, POPUP_Y
+            POPUP_X = -1
+            POPUP_Y = -1
+            config = configparser.ConfigParser()
+            config.read(CONFIG_FILE)
+            if 'Settings' not in config:
+                config['Settings'] = {}
+            config['Settings']['popup_x'] = '-1'
+            config['Settings']['popup_y'] = '-1'
+            with open(CONFIG_FILE, 'w') as f:
+                config.write(f)
+            status_label.config(text="Pop-uppositie gereset naar centrum.", fg='green')
+            print("[Config] Pop-uppositie gereset")
+
+        btn_frame = tk.Frame(popup)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=(5, 10))
+        tk.Button(btn_frame, text="Opslaan", command=sla_hotkey_op, width=12).pack(side='left', padx=5)
+        tk.Button(btn_frame, text="Positie resetten", command=reset_positie, width=14).pack(side='left', padx=5)
+
+        close_frame = tk.Frame(popup)
+        close_frame.grid(row=3, column=0, columnspan=2, pady=(0, 10))
+        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack()
+
+        popup.bind('<Escape>', lambda e: popup.destroy())
+        _popup_root.wait_window(popup)
+    except Exception as e:
+        print(f"[Fout] Kon instellingenpop-up niet tonen: {e}")
+
+
 # --- NOTIFICATIE FUNCTIES ---
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
@@ -977,6 +1341,7 @@ def main():
     global _popup_root
     print("--- Woordenlijst-checker v1.2.8 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
+    print(f"Druk op Ctrl+F9 voor help. Rechtskllik op het systeemvakicoon voor alle opties.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
 
@@ -987,7 +1352,11 @@ def main():
     _popup_root.attributes('-alpha', 0)
     _popup_root.withdraw()
 
+    tray_thread = threading.Thread(target=_tray_loop, daemon=True)
+    tray_thread.start()
+
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
+    keyboard.add_hotkey('ctrl+f9', lambda: threading.Thread(target=show_help_popup).start())
     _popup_root.mainloop()  # Tk-event loop draait in hoofdthread; after()-callbacks verwerken popups
 
 if __name__ == "__main__":
