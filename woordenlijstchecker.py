@@ -47,6 +47,17 @@ _TPM_RIGHTALIGN   = 0x8
 _TPM_RETURNCMD    = 0x100
 _tray_hwnd        = None
 
+# Correcte retourtypes voor Win32-functies (voorkomt truncatie op 64-bit)
+ctypes.windll.kernel32.GetModuleHandleW.restype     = wintypes.HANDLE
+ctypes.windll.user32.RegisterClassExW.restype       = ctypes.c_ushort
+ctypes.windll.user32.CreateWindowExW.restype        = wintypes.HWND
+ctypes.windll.user32.DefWindowProcW.restype         = ctypes.c_ssize_t
+ctypes.windll.user32.LoadImageW.restype             = wintypes.HANDLE
+ctypes.windll.user32.LoadIconW.restype              = wintypes.HANDLE
+ctypes.windll.user32.CreatePopupMenu.restype        = wintypes.HANDLE
+ctypes.windll.user32.TrackPopupMenu.restype         = ctypes.c_uint
+ctypes.windll.shell32.Shell_NotifyIconW.restype     = wintypes.BOOL
+
 
 class _NOTIFYICONDATA(ctypes.Structure):
     # szTip[64] geeft cbSize = 168 op 64-bit Windows = NOTIFYICONDATA_V1_SIZE
@@ -62,7 +73,8 @@ class _NOTIFYICONDATA(ctypes.Structure):
 
 
 _WNDPROC = ctypes.WINFUNCTYPE(
-    ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+    ctypes.c_ssize_t,  # LRESULT = LONG_PTR, 64-bit op x64 Windows
+    wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
 )
 
 
@@ -137,7 +149,12 @@ def _voeg_tray_icoon_toe(hwnd):
     nid.szTip = "Woordenlijst-checker"
     result = ctypes.windll.shell32.Shell_NotifyIconW(_NIM_ADD, ctypes.byref(nid))
     if not result:
-        print(f"[Fout] Shell_NotifyIconW(NIM_ADD) gefaald (cbSize={nid.cbSize}).")
+        err = ctypes.windll.kernel32.GetLastError()
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            f"Systeemvakicoon kon niet worden toegevoegd.\ncbSize={nid.cbSize}  fout={err}",
+            "Woordenlijst-checker", 0x10
+        )
 
 
 def _verwijder_tray_icoon(hwnd):
@@ -194,7 +211,12 @@ def _tray_loop():
     try:
         hwnd = _maak_tray_venster()
         if not hwnd:
-            print("[Fout] Systeemvakvenster kon niet worden aangemaakt.")
+            err = ctypes.windll.kernel32.GetLastError()
+            ctypes.windll.user32.MessageBoxW(
+                None,
+                f"Systeemvakvenster kon niet worden aangemaakt.\nFoutcode: {err}",
+                "Woordenlijst-checker", 0x10
+            )
             return
         _voeg_tray_icoon_toe(hwnd)
         print("[Info] Systeemvakicoon actief. Rechtskllik op het icoon voor opties.")
@@ -204,7 +226,9 @@ def _tray_loop():
             ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
         _verwijder_tray_icoon(hwnd)
     except Exception as e:
-        print(f"[Fout] Systeemvak-thread: {e}")
+        ctypes.windll.user32.MessageBoxW(
+            None, f"Systeemvak-thread fout:\n{e}", "Woordenlijst-checker", 0x10
+        )
 
 # --- GEBRUIKSLIMIET ---
 # Track laatste requests
