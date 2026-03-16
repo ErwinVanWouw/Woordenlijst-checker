@@ -285,8 +285,7 @@ def check_word_online(word):
                 if '<wordform>' + word_normalized + '</wordform>' in block:
                     if '<label>meervoud</label>' in block:
                         is_plural = True
-                    enkelvoud_pattern = r'<label>enkelvoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-                    if re.search(enkelvoud_pattern, block, re.DOTALL):
+                    if '<label>enkelvoud</label><wordform>' + word_normalized + '</wordform>' in block:
                         is_also_singular = True
 
             # Het is alleen een meervoud als het niet ook als enkelvoud voorkomt
