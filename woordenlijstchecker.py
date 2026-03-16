@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.3 door Black Kite (blackkite.nl)
+# Woordenlijst-checker door Black Kite (blackkite.nl)
 
 # Vereiste bibliotheken
 import time
@@ -17,11 +17,14 @@ from collections import deque
 import re
 import sys
 import html
+import ctypes
 import pystray
 from PIL import Image
 
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
+
+VERSION = "1.3"
 
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
@@ -72,7 +75,7 @@ def _start_tray():
     """Maak het systeemvakicoon aan en start het in een aparte thread."""
     global _tray_icon
     menu = pystray.Menu(
-        pystray.MenuItem('Woordenlijst-checker v1.3', None, enabled=False),
+        pystray.MenuItem(f'Woordenlijst-checker v{VERSION}', None, enabled=False),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem('Help', _on_tray_help, default=True),
         pystray.MenuItem('Instellingen...', _on_tray_instellingen),
@@ -152,8 +155,11 @@ def load_config():
             'popup_x': '-1',
             'popup_y': '-1'
         }
-        with open(config_file, 'w') as f:
-            config.write(f)
+        try:
+            with open(config_file, 'w') as f:
+                config.write(f)
+        except OSError as e:
+            print(f"[Waarschuwing] Kon config.ini niet aanmaken: {e}")
         hotkey = 'f9'
         popup_x = popup_y = -1
         print(f"[Config] Nieuw config.ini bestand aangemaakt met standaard sneltoets: 'f9'")
@@ -202,7 +208,6 @@ def get_popup_position(width, height):
 
     # Valideer of opgeslagen positie binnen de virtuele schermruimte valt (alle monitoren)
     try:
-        import ctypes
         u32 = ctypes.windll.user32
         virt_x = u32.GetSystemMetrics(76)   # SM_XVIRTUALSCREEN
         virt_y = u32.GetSystemMetrics(77)   # SM_YVIRTUALSCREEN
@@ -223,17 +228,13 @@ def get_popup_position(width, height):
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
-    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article, word_info, gender, gender_info_list)"""
+    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article, word_info, gender, gender_info_list).
+    Verwacht een al-genormaliseerd woord (apostrofs zijn al omgezet door perform_check)."""
     if not word or not word.strip():
         print("[Info] Klembord is leeg, actie geannuleerd.")
         return False, word, None, None, None, None, None
 
-    # Normaliseer alle typografische apostrofs naar rechte apostrof
-    word_normalized = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", word)
-
-    # Als er een wijziging was, toon dit
-    if word != word_normalized:
-        print(f"[Info] Apostrof genormaliseerd: '{word}' → '{word_normalized}'")
+    word_normalized = word
 
     api_url = "https://woordenlijst.org/MolexServe/lexicon/find_wordform"
 
@@ -1235,7 +1236,7 @@ def perform_check():
 # --- HOOFDFUNCTIE ---
 def main():
     global _popup_root
-    print("--- Woordenlijst-checker v1.3 ---")
+    print(f"--- Woordenlijst-checker v{VERSION} ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
     print(f"Rechtsklik op het systeemvakicoon voor alle opties.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
