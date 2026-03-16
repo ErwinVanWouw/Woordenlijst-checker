@@ -276,20 +276,19 @@ def check_word_online(word):
             gender_info_list = []  # lijst van dicts met article/gender combinaties
             gender = None
 
-            # Check of het gezochte woord als meervoud voorkomt (brede regex op volledige XML)
+            # Check of het woord als meervoud voorkomt (brede regex, v1.2.7-stijl)
             plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-            is_plural = bool(re.search(plural_pattern, xml_content, re.DOTALL))
+            if re.search(plural_pattern, xml_content, re.DOTALL):
+                is_plural_noun = True  # Altijd True bij meervoud, ook als tevens enkelvoud
 
-            # Uitzondering: invariante naamwoorden die ook enkelvoud zijn (bijv. chassis)
-            is_also_singular = '<label>enkelvoud</label><wordform>' + word_normalized + '</wordform>' in xml_content
-
-            # Het is alleen een meervoud als het niet ook als enkelvoud voorkomt
-            if is_plural and not is_also_singular:
-                is_plural_noun = True  # Voor de word_info
-                article = 'de'
-                gender = None
-                gender_info_list = None
-                print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+                # Artikel: 'de' tenzij het woord ook als enkelvoud voorkomt (invariante naamwoorden)
+                singular_pattern = r'<label>enkelvoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
+                if not re.search(singular_pattern, xml_content, re.DOTALL):
+                    article = 'de'
+                    gender = None
+                    gender_info_list = None
+                    print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+                # else: gender-extractie draait hieronder voor artikel (invariante naamwoorden zoals chassis)
             else:
                 # Voor enkelvoud: verzamel genders per lemma voorkomen
                 lemma_entries = []
