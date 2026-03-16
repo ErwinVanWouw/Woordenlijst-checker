@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.2.8 door Black Kite (blackkite.nl)
+# Woordenlijst-checker v1.3 door Black Kite (blackkite.nl)
 
 # Vereiste bibliotheken
 import time
@@ -72,9 +72,9 @@ def _start_tray():
     """Maak het systeemvakicoon aan en start het in een aparte thread."""
     global _tray_icon
     menu = pystray.Menu(
-        pystray.MenuItem('Woordenlijst-checker v1.2.8', None, enabled=False),
+        pystray.MenuItem('Woordenlijst-checker v1.3', None, enabled=False),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem('Help  (Ctrl+F9)', _on_tray_help, default=True),
+        pystray.MenuItem('Help', _on_tray_help, default=True),
         pystray.MenuItem('Instellingen...', _on_tray_instellingen),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem('Afsluiten', _on_tray_afsluiten),
@@ -200,18 +200,26 @@ def get_popup_position(width, height):
     if POPUP_X == -1 or POPUP_Y == -1:
         return center()
 
-    # Valideer of opgeslagen positie binnen schermgrenzen valt
+    # Valideer of opgeslagen positie binnen de virtuele schermruimte valt (alle monitoren)
     try:
-        sw = _popup_root.winfo_screenwidth()
-        sh = _popup_root.winfo_screenheight()
-        if POPUP_X + width > sw + 100 or POPUP_Y + height > sh + 100 or POPUP_X < -100 or POPUP_Y < -100:
+        import ctypes
+        u32 = ctypes.windll.user32
+        virt_x = u32.GetSystemMetrics(76)   # SM_XVIRTUALSCREEN
+        virt_y = u32.GetSystemMetrics(77)   # SM_YVIRTUALSCREEN
+        virt_w = u32.GetSystemMetrics(78)   # SM_CXVIRTUALSCREEN
+        virt_h = u32.GetSystemMetrics(79)   # SM_CYVIRTUALSCREEN
+        margin = 100
+        if (POPUP_X + width  < virt_x - margin or
+                POPUP_Y + height < virt_y - margin or
+                POPUP_X > virt_x + virt_w + margin or
+                POPUP_Y > virt_y + virt_h + margin):
             print("[Info] Opgeslagen positie niet bereikbaar, gebruik centrum")
             return center()
         return POPUP_X, POPUP_Y
 
     except Exception as e:
         print(f"[Waarschuwing] Kon pop-uppositie niet valideren: {e}")
-        return center()
+        return POPUP_X, POPUP_Y
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
@@ -652,7 +660,7 @@ def show_help_popup():
         return
     try:
         popup = tk.Toplevel(_popup_root)
-        popup.title("Help — Woordenlijst-checker")
+        popup.title("Help – Woordenlijst-checker")
         popup.resizable(True, True)
         popup.attributes('-topmost', True)
         _set_icon(popup)
@@ -1227,9 +1235,9 @@ def perform_check():
 # --- HOOFDFUNCTIE ---
 def main():
     global _popup_root
-    print("--- Woordenlijst-checker v1.2.8 ---")
+    print("--- Woordenlijst-checker v1.3 ---")
     print(f"Druk op '{HOTKEY}' om het geselecteerde woord te controleren.")
-    print(f"Druk op Ctrl+F9 voor help. Rechtskllik op het systeemvakicoon voor alle opties.")
+    print(f"Rechtsklik op het systeemvakicoon voor alle opties.")
     print(f"Configuratie: {os.path.abspath('config.ini')}")
     print("----------------------------------------------------------")
 
@@ -1243,7 +1251,7 @@ def main():
     _start_tray()
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
-    keyboard.add_hotkey('ctrl+f9', lambda: threading.Thread(target=show_help_popup).start())
+
     _popup_root.mainloop()  # Tk-event loop draait in hoofdthread; after()-callbacks verwerken popups
 
 if __name__ == "__main__":
