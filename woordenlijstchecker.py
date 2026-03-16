@@ -276,17 +276,12 @@ def check_word_online(word):
             gender_info_list = []  # lijst van dicts met article/gender combinaties
             gender = None
 
-            # Check of het gezochte woord ALLEEN als meervoud voorkomt
-            is_plural = False
-            is_also_singular = False
+            # Check of het gezochte woord als meervoud voorkomt (brede regex op volledige XML)
+            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
+            is_plural = bool(re.search(plural_pattern, xml_content, re.DOTALL))
 
-            paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
-            for block in paradigm_blocks:
-                if '<wordform>' + word_normalized + '</wordform>' in block:
-                    if '<label>meervoud</label>' in block:
-                        is_plural = True
-                    if '<label>enkelvoud</label><wordform>' + word_normalized + '</wordform>' in block:
-                        is_also_singular = True
+            # Uitzondering: invariante naamwoorden die ook enkelvoud zijn (bijv. chassis)
+            is_also_singular = '<label>enkelvoud</label><wordform>' + word_normalized + '</wordform>' in xml_content
 
             # Het is alleen een meervoud als het niet ook als enkelvoud voorkomt
             if is_plural and not is_also_singular:
