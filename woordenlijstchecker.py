@@ -49,6 +49,7 @@ _tray_hwnd        = None
 
 
 class _NOTIFYICONDATA(ctypes.Structure):
+    # szTip[64] geeft cbSize = 168 op 64-bit Windows = NOTIFYICONDATA_V1_SIZE
     _fields_ = [
         ('cbSize',           wintypes.DWORD),
         ('hWnd',             wintypes.HWND),
@@ -56,7 +57,7 @@ class _NOTIFYICONDATA(ctypes.Structure):
         ('uFlags',           wintypes.UINT),
         ('uCallbackMessage', wintypes.UINT),
         ('hIcon',            wintypes.HANDLE),
-        ('szTip',            ctypes.c_wchar * 128),
+        ('szTip',            ctypes.c_wchar * 64),
     ]
 
 
@@ -134,7 +135,9 @@ def _voeg_tray_icoon_toe(hwnd):
     nid.uCallbackMessage = _WM_TRAY
     nid.hIcon = hIcon
     nid.szTip = "Woordenlijst-checker"
-    ctypes.windll.shell32.Shell_NotifyIconW(_NIM_ADD, ctypes.byref(nid))
+    result = ctypes.windll.shell32.Shell_NotifyIconW(_NIM_ADD, ctypes.byref(nid))
+    if not result:
+        print(f"[Fout] Shell_NotifyIconW(NIM_ADD) gefaald (cbSize={nid.cbSize}).")
 
 
 def _verwijder_tray_icoon(hwnd):
