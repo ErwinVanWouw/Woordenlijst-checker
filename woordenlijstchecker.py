@@ -17,8 +17,8 @@ from collections import deque
 import re
 import sys
 import html
-import ctypes
-from ctypes import wintypes
+import pystray
+from PIL import Image
 
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -26,209 +26,66 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
 
-# --- SYSTEEMVAK (Win32 via ctypes) ---
-_WM_TRAY          = 0x0401  # WM_USER + 1
-_WM_RBUTTONUP     = 0x0205
-_WM_LBUTTONDBLCLK = 0x0203
-_WM_NULL          = 0x0000
-_NIM_ADD          = 0
-_NIM_DELETE       = 2
-_NIF_ICON         = 0x1
-_NIF_MSG          = 0x2
-_NIF_TIP          = 0x4
-_ID_HELP          = 1001
-_ID_INSTELLINGEN  = 1002
-_ID_AFSLUITEN     = 1003
-_MF_STRING        = 0x0
-_MF_SEPARATOR     = 0x800
-_MF_GRAYED        = 0x1
-_TPM_BOTTOMALIGN  = 0x20
-_TPM_RIGHTALIGN   = 0x8
-_TPM_RETURNCMD    = 0x100
-_tray_hwnd        = None
-
-# Correcte retourtypes voor Win32-functies (voorkomt truncatie op 64-bit)
-ctypes.windll.kernel32.GetModuleHandleW.restype     = wintypes.HANDLE
-ctypes.windll.user32.RegisterClassExW.restype       = ctypes.c_ushort
-ctypes.windll.user32.CreateWindowExW.restype        = wintypes.HWND
-ctypes.windll.user32.DefWindowProcW.restype         = ctypes.c_ssize_t
-ctypes.windll.user32.LoadImageW.restype             = wintypes.HANDLE
-ctypes.windll.user32.LoadIconW.restype              = wintypes.HANDLE
-ctypes.windll.user32.CreatePopupMenu.restype        = wintypes.HANDLE
-ctypes.windll.user32.TrackPopupMenu.restype         = ctypes.c_uint
-ctypes.windll.shell32.Shell_NotifyIconW.restype     = wintypes.BOOL
+# --- SYSTEEMVAK (pystray) ---
+_tray_icon = None
 
 
-class _NOTIFYICONDATA(ctypes.Structure):
-    # szTip[64] geeft cbSize = 168 op 64-bit Windows = NOTIFYICONDATA_V1_SIZE
-    _fields_ = [
-        ('cbSize',           wintypes.DWORD),
-        ('hWnd',             wintypes.HWND),
-        ('uID',              wintypes.UINT),
-        ('uFlags',           wintypes.UINT),
-        ('uCallbackMessage', wintypes.UINT),
-        ('hIcon',            wintypes.HANDLE),
-        ('szTip',            ctypes.c_wchar * 64),
-    ]
-
-
-_WNDPROC = ctypes.WINFUNCTYPE(
-    ctypes.c_ssize_t,  # LRESULT = LONG_PTR, 64-bit op x64 Windows
-    wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
-)
-
-
-class _WNDCLASSEX(ctypes.Structure):
-    _fields_ = [
-        ('cbSize',        wintypes.UINT),
-        ('style',         wintypes.UINT),
-        ('lpfnWndProc',   _WNDPROC),
-        ('cbClsExtra',    ctypes.c_int),
-        ('cbWndExtra',    ctypes.c_int),
-        ('hInstance',     wintypes.HANDLE),
-        ('hIcon',         wintypes.HANDLE),
-        ('hCursor',       wintypes.HANDLE),
-        ('hbrBackground', wintypes.HANDLE),
-        ('lpszMenuName',  wintypes.LPCWSTR),
-        ('lpszClassName', wintypes.LPCWSTR),
-        ('hIconSm',       wintypes.HANDLE),
-    ]
-
-
-def _wndproc_impl(hwnd, msg, wparam, lparam):
-    if msg == _WM_TRAY:
-        if lparam == _WM_RBUTTONUP:
-            _toon_tray_menu(hwnd)
-        elif lparam == _WM_LBUTTONDBLCLK:
-            if _popup_root:
-                _popup_root.after(0, lambda: threading.Thread(target=show_help_popup).start())
-    return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)
-
-
-_wndproc_ref = _WNDPROC(_wndproc_impl)
-
-
-def _maak_tray_venster():
-    """Maak een onzichtbaar message-only venster aan voor de tray-callback."""
-    CLASS_NAME = "WC_WrdlstChecker_Tray"
-    hInstance = ctypes.windll.kernel32.GetModuleHandleW(None)
-    wc = _WNDCLASSEX()
-    wc.cbSize = ctypes.sizeof(_WNDCLASSEX)
-    wc.lpfnWndProc = _wndproc_ref
-    wc.hInstance = hInstance
-    wc.lpszClassName = CLASS_NAME
-    ctypes.windll.user32.RegisterClassExW(ctypes.byref(wc))
-    HWND_MESSAGE = -3
-    hwnd = ctypes.windll.user32.CreateWindowExW(
-        0, CLASS_NAME, "Tray", 0,
-        0, 0, 0, 0,
-        HWND_MESSAGE, None, hInstance, None
-    )
-    return hwnd
-
-
-def _voeg_tray_icoon_toe(hwnd):
-    """Voeg het systeemvakicoon toe via Shell_NotifyIcon."""
-    global _tray_hwnd
-    _tray_hwnd = hwnd
-    icon_path = (os.path.join(sys._MEIPASS, "favicon.ico")
-                 if hasattr(sys, '_MEIPASS') else "favicon.ico")
-    if os.path.exists(icon_path):
-        hIcon = ctypes.windll.user32.LoadImageW(
-            None, icon_path, 1, 16, 16, 0x10  # IMAGE_ICON, LR_LOADFROMFILE
-        )
+def _laad_tray_icoon_image():
+    """Laad favicon.ico of val terug op een blauw vlak."""
+    if hasattr(sys, '_MEIPASS'):
+        icon_path = os.path.join(sys._MEIPASS, 'favicon.ico')
     else:
-        hIcon = ctypes.windll.user32.LoadIconW(None, 32512)  # IDI_APPLICATION
-    nid = _NOTIFYICONDATA()
-    nid.cbSize = ctypes.sizeof(_NOTIFYICONDATA)
-    nid.hWnd = hwnd
-    nid.uID = 1
-    nid.uFlags = _NIF_ICON | _NIF_MSG | _NIF_TIP
-    nid.uCallbackMessage = _WM_TRAY
-    nid.hIcon = hIcon
-    nid.szTip = "Woordenlijst-checker"
-    result = ctypes.windll.shell32.Shell_NotifyIconW(_NIM_ADD, ctypes.byref(nid))
-    if not result:
-        err = ctypes.windll.kernel32.GetLastError()
-        ctypes.windll.user32.MessageBoxW(
-            None,
-            f"Systeemvakicoon kon niet worden toegevoegd.\ncbSize={nid.cbSize}  fout={err}",
-            "Woordenlijst-checker", 0x10
-        )
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'favicon.ico')
+    try:
+        return Image.open(icon_path).resize((32, 32))
+    except Exception:
+        return Image.new('RGBA', (32, 32), (0, 120, 215, 255))
 
 
-def _verwijder_tray_icoon(hwnd):
-    """Verwijder het systeemvakicoon."""
-    nid = _NOTIFYICONDATA()
-    nid.cbSize = ctypes.sizeof(_NOTIFYICONDATA)
-    nid.hWnd = hwnd
-    nid.uID = 1
-    ctypes.windll.shell32.Shell_NotifyIconW(_NIM_DELETE, ctypes.byref(nid))
-
-
-def _toon_tray_menu(hwnd):
-    """Toon het rechtsklimmenu bij het systeemvakicoon."""
-    hmenu = ctypes.windll.user32.CreatePopupMenu()
-    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING | _MF_GRAYED, 0, "Woordenlijst-checker v1.2.8")
-    ctypes.windll.user32.AppendMenuW(hmenu, _MF_SEPARATOR, 0, None)
-    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING, _ID_HELP, "Help  (Ctrl+F9)")
-    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING, _ID_INSTELLINGEN, "Instellingen...")
-    ctypes.windll.user32.AppendMenuW(hmenu, _MF_SEPARATOR, 0, None)
-    ctypes.windll.user32.AppendMenuW(hmenu, _MF_STRING, _ID_AFSLUITEN, "Afsluiten")
-    pt = wintypes.POINT()
-    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-    ctypes.windll.user32.SetForegroundWindow(hwnd)
-    cmd = ctypes.windll.user32.TrackPopupMenu(
-        hmenu,
-        _TPM_BOTTOMALIGN | _TPM_RIGHTALIGN | _TPM_RETURNCMD,
-        pt.x, pt.y, 0, hwnd, None
-    )
-    ctypes.windll.user32.DestroyMenu(hmenu)
-    ctypes.windll.user32.PostMessageW(hwnd, _WM_NULL, 0, 0)
-    if cmd == _ID_HELP and _popup_root:
+def _on_tray_help(icon, item):
+    if _popup_root:
         _popup_root.after(0, lambda: threading.Thread(target=show_help_popup).start())
-    elif cmd == _ID_INSTELLINGEN and _popup_root:
+
+
+def _on_tray_instellingen(icon, item):
+    if _popup_root:
         _popup_root.after(0, lambda: threading.Thread(target=show_config_popup).start())
-    elif cmd == _ID_AFSLUITEN:
-        if _popup_root:
-            _popup_root.after(0, _sluit_af)
+
+
+def _on_tray_afsluiten(icon, item):
+    if _popup_root:
+        _popup_root.after(0, _sluit_af)
 
 
 def _sluit_af():
     """Sluit de applicatie netjes af vanuit de hoofdthread."""
-    global _tray_hwnd
     try:
         keyboard.unhook_all()
     except Exception:
         pass
-    if _tray_hwnd:
-        ctypes.windll.user32.PostMessageW(_tray_hwnd, 0x0012, 0, 0)  # WM_QUIT
+    if _tray_icon:
+        _tray_icon.stop()
     _popup_root.quit()
 
 
-def _tray_loop():
-    """Win32-berichtlus voor het systeemvakicoon; draait in een aparte thread."""
-    try:
-        hwnd = _maak_tray_venster()
-        if not hwnd:
-            err = ctypes.windll.kernel32.GetLastError()
-            ctypes.windll.user32.MessageBoxW(
-                None,
-                f"Systeemvakvenster kon niet worden aangemaakt.\nFoutcode: {err}",
-                "Woordenlijst-checker", 0x10
-            )
-            return
-        _voeg_tray_icoon_toe(hwnd)
-        print("[Info] Systeemvakicoon actief. Rechtskllik op het icoon voor opties.")
-        msg = wintypes.MSG()
-        while ctypes.windll.user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
-            ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
-            ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
-        _verwijder_tray_icoon(hwnd)
-    except Exception as e:
-        ctypes.windll.user32.MessageBoxW(
-            None, f"Systeemvak-thread fout:\n{e}", "Woordenlijst-checker", 0x10
-        )
+def _start_tray():
+    """Maak het systeemvakicoon aan en start het in een aparte thread."""
+    global _tray_icon
+    menu = pystray.Menu(
+        pystray.MenuItem('Woordenlijst-checker v1.2.8', None, enabled=False),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem('Help  (Ctrl+F9)', _on_tray_help, default=True),
+        pystray.MenuItem('Instellingen...', _on_tray_instellingen),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem('Afsluiten', _on_tray_afsluiten),
+    )
+    _tray_icon = pystray.Icon(
+        'woordenlijstchecker',
+        _laad_tray_icoon_image(),
+        'Woordenlijst-checker',
+        menu,
+    )
+    threading.Thread(target=_tray_icon.run, daemon=True).start()
 
 # --- GEBRUIKSLIMIET ---
 # Track laatste requests
@@ -272,7 +129,11 @@ def is_geldig_invoer(word):
 def load_config():
     """Laad configuratie uit ini bestand of maak standaard aan"""
     config = configparser.ConfigParser()
-    config_file = 'config.ini'
+    if hasattr(sys, '_MEIPASS'):
+        _config_dir = os.path.dirname(sys.executable)
+    else:
+        _config_dir = os.path.dirname(os.path.abspath(__file__))
+    config_file = os.path.join(_config_dir, 'config.ini')
 
     # Check of config-bestand bestaat
     if os.path.exists(config_file):
@@ -1379,8 +1240,7 @@ def main():
     _popup_root.attributes('-alpha', 0)
     _popup_root.withdraw()
 
-    tray_thread = threading.Thread(target=_tray_loop, daemon=True)
-    tray_thread.start()
+    _start_tray()
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
     keyboard.add_hotkey('ctrl+f9', lambda: threading.Thread(target=show_help_popup).start())
