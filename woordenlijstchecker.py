@@ -267,8 +267,8 @@ def check_word_online(word):
             is_plural_noun = False
 
             # Check of het een werkwoord is
-            verb_pattern = r'<label>hoofdwerkwoord</label>\s*<lemma>' + re.escape(word_normalized) + r'</lemma>'
-            if re.search(verb_pattern, xml_content):
+            verb_pattern = r'<lemma>' + re.escape(word_normalized) + r'</lemma>.*?<label>hoofdwerkwoord</label>'
+            if re.search(verb_pattern, xml_content, re.DOTALL):
                 is_verb = True
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
 
@@ -279,6 +279,7 @@ def check_word_online(word):
 
             # Check of het woord als meervoud voorkomt (brede regex, v1.2.7-stijl)
             plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
+            extract_gender = True
             if re.search(plural_pattern, xml_content, re.DOTALL):
                 is_plural_noun = True  # Altijd True bij meervoud, ook als tevens enkelvoud
 
@@ -293,9 +294,10 @@ def check_word_online(word):
                     article = 'de'
                     gender = None
                     gender_info_list = None
+                    extract_gender = False
                     print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
-                # else: invariant naamwoord (chassis e.d.) → article blijft None
-            else:
+                # else: invariant naamwoord (chassis e.d.) → gender-extractie draait hieronder
+            if extract_gender:
                 # Voor enkelvoud: verzamel genders per lemma voorkomen
                 lemma_entries = []
 
