@@ -1,6 +1,8 @@
 # Woordenlijst-checker
 Een handige tool om snel woorden op te zoeken in Woordenlijst.org vanuit uw actieve Windows-app
 
+*Scroll down for English*
+
 ## Introductie
 Met deze gratis tool kunt u controleren of een woord is opgenomen in de officiële 'groene' database van Woordenlijst.org en of er een onofficieel 'wit' alternatief bestaat zonder uw actieve Windows-app te verlaten.
 
@@ -16,6 +18,8 @@ Deze Python-tool maakt gebruik van de volgende databases, maar is op geen enkele
 
 Het woordenbestand en de applicatie op [Woordenlijst.org](https://woordenlijst.org/) worden ontwikkeld en beheerd door het [Instituut voor de Nederlandse Taal](https://ivdnt.org/) in opdracht van de [Taalunie](https://taalunie.org/). Het woordenbestand en de applicatie op [Onzetaal.nl](https://onzetaal.nl/taalloket/zoek-spelling) worden ontwikkeld en beheerd door [Genootschap Onze Taal](https://onzetaal.nl) en [Uitgeverij Unieboek Het Spectrum bv](https://www.prisma.nl/).
 
+Website *Woordenlijst-checker*: https://www.blackkite.nl/nieuws/woordenlijst-checker.php
+
 ## Privacystatement
 
 *Woordenlijst-checker* is opensourcesoftware en verzamelt en registreert geen persoonlijke gegevens. Alleen voor het verzenden van de zoekterm maakt de app verbinding met de API.
@@ -26,11 +30,11 @@ Ga naar [Releases](../../releases/), download het meest recente bestand en voer 
 ## Gebruik
 Selecteer het woord dat u wilt opzoeken (Ctrl+Shift+Pijl links/rechts), druk op F9 en kijk op uw scherm.
 
-Als het geselecteerde woord voorkomt in de database van Woordenlijst.org, verschijnt er een pop-upvenstertje ter verificatie dat u het hebt gespeld volgens de officiële spelling van het Nederlands. Dit venstertje verdwijnt na drie seconden automatisch weer. Ondertussen kunt u gewoon verdergaan met uw werk. Als u wilt dat het pop-upvenster zichtbaar blijft, klik er dan op.
+Als het geselecteerde woord voorkomt in de database van Woordenlijst.org, verschijnt er een pop-upvenstertje ter verificatie dat u het hebt gespeld volgens de officiële spelling van het Nederlands. Dit venstertje verdwijnt na drie seconden automatisch weer. Ondertussen kunt u gewoon verdergaan met uw werk. Klik in het pop-upvenster als u wilt dat het zichtbaar blijft.
 
 *Woordenlijst-checker* toont ook het woordgeslacht van het opgevraagde zelfstandig naamwoord, samen met het lidwoord of de lidwoorden die erbij horen. Als een meervoudsvorm gelijk is aan de infinitief (bv. harken), dan wordt dit vermeld in het pop-upvenster.
 
-Als het woord niet in de officiële Woordenlijst van de Nederlandse Taal staat, verschijnt er een dialoogvenster met mogelijke suggesties. Als er een alternatieve 'Witte spelling' beschikbaar is op Onzetaal.nl, wordt deze ook weergegeven. Het gekopieerde woord blijft op uw Windows-klembord staan.
+Als het woord niet in de officiële Woordenlijst van de Nederlandse Taal staat, verschijnt er een dialoogvenster met mogelijke suggesties. Als er een alternatieve 'Witte spelling' beschikbaar is op Onzetaal.nl, wordt deze ook weergegeven. Het gekopieerde woord blijft op het Windows-klembord staan.
 
 ## Aanpassen sneltoets of pop-uppositie 
 Bij de eerste keer opstarten creëert *Woordenlijst-checker* een configuratiebestand met F9 als standaard sneltoets. Als deze standaard sneltoets conflicteert met andere software op uw systeem, kunt u die sneltoets aanpassen. Rechtsklik op het systeemvakpictogram van Woordenlijst-checker, open 'Instellingen', vervang F9 door de gewenste sneltoets en klik op 'Opslaan'.
@@ -39,7 +43,7 @@ U kunt aanpassen waar de pop-ups op uw scherm verschijnen en op welke monitor (i
 
 Valt het pop-upvenster buiten het zichtbare gebied van uw scherm? Klik op het systeemvakpictogram van *Woordenlijst-checker*, ga naar Instellingen en klik op 'Positie resetten'.
 
-Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictogrammen automatisch in de overloopbalk (het pijlt naast de klok). U kunt het pictogram ook zichtbaar maken via **Persoonlijke instellingen > Taakbalk > Andere systeemvakpictogrammen**.
+Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictogrammen automatisch in de overloopbalk (het pijltje naast de klok). U kunt het pictogram ook zichtbaar maken via **Persoonlijke instellingen > Taakbalk > Andere systeemvakpictogrammen**.
 
 ## Demo
 https://youtu.be/wGiD9uJ44wc
@@ -47,22 +51,23 @@ https://youtu.be/wGiD9uJ44wc
 ## Support
 Hulp of ondersteuning nodig? Ga naar https://www.blackkite.nl/nieuws/woordenlijst-checker.php
 
-<br><br><br>
+
+==========================
+==========================
 
 
-
-# Woordenlijst-checker
-A handy tool to quickly look-up words in Woordenlijst.org within your active Windows-app
+# English
+*Woordenlijst-checker* is a handy tool to quickly look-up words in Woordenlijst.org within your active Windows-app
 
 ## Introduction
-This free and open source tool allows you to quickly verify whether a word is included in the official 'green' Woordenlijst.org database and if an unofficial 'white' alternative is available, all without leaving the Windows application you are working in.
+This free tool allows you to quickly verify whether a word is included in the official 'green' Woordenlijst.org database and if an unofficial 'white' alternative is available, all without leaving the Windows application you are working in.
 
-- works in any Windows application
-- allows you to modify the default shortcut key F9 by clicking the system tray icon
-- multi-monitor support
-- shows a verification window for 3 seconds if a word is found
-- option to open Woordenlijst.org if a word is not listed
-- automatically shows the correct article (de/het) and gender for Dutch nouns
+- Works in any Windows application
+- Allows you to modify the default shortcut key F9 by clicking the system tray icon
+- Multi-monitor support
+- Shows a verification window for 3 seconds if a word is found
+- Option to open Woordenlijst.org if a word is not listed
+- Automatically shows the correct article (de/het) and gender for Dutch nouns
 
 ## References
 The *Woordenlijst-checker* tool uses the following databases but is in no other way affiliated with the organisations that manage them. Use of the app is restricted to 30 checks per minute.
@@ -70,7 +75,7 @@ The *Woordenlijst-checker* tool uses the following databases but is in no other 
 The database and application for [Woordenlijst.org](https://woordenlijst.org/) is developed and managed by [Instituut voor de Nederlandse Taal](https://ivdnt.org/) under the authority of the [Taalunie](https://taalunie.org/).
 The database and application for [Onzetaal.nl](https://onzetaal.nl/taalloket/zoek-spelling) is developed and managed by [Genootschap Onze Taal](https://onzetaal.nl) and [Uitgeverij Unieboek Het Spectrum bv](https://www.prisma.nl/).
 
-Dutch website *Woordenlijst-checker* tool: https://www.blackkite.nl/nieuws/woordenlijst-checker.php
+Dutch website *Woordenlijst-checker*: https://www.blackkite.nl/nieuws/woordenlijst-checker.php
 
 # Privacy statement
 
@@ -93,7 +98,7 @@ When you first launch *Woordenlijst-checker*, a configuration file is created wi
 
 Would you like the pop-up window to appear in a different location on your screen or on another monitor? Drag and drop the pop-up window anywhere on your primary or secondary monitor, and the tool will remember its location. The next time you trigger the tool by pressing F9 the pop-up window will appear here. Has the pop-up moved outside the visible area of your screen? Click the *Woordenlijst-checker* system tray icon, go to Instellingen and click 'Positie resetten'.
 
-Can't see a system tray icon? Windows 10/11 automatically hides newly added tray icons in the overflow (the small ^ arrow next to the clock). Alternatively, you can make it visible via Personalization > Taskbar > Other system tray icons.
+Can't see a system tray icon? Windows 10/11 automatically hides newly added tray icons in the overflow (the small ^ arrow next to the clock). Alternatively, you can make it visible via **Personalization > Taskbar > Other system tray icons**.
 
 ## Demo
 https://youtu.be/wGiD9uJ44wc
