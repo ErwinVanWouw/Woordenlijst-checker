@@ -1,4 +1,56 @@
 # Woordenlijst-checker
+Een handige tool om snel woorden op te zoeken in Woordenlijst.org vanuit uw actieve Windows-app
+
+[English below](#english)
+
+## Introductie
+Met deze gratis opensourcetool kunt u controleren of een woord is opgenomen in de officiële 'groene' database van Woordenlijst.org en of er een onofficieel 'wit' alternatief bestaat zonder uw actieve Windows-app te verlaten.
+
+<ins>Belangrijkste kenmerken:</ins>
+- Windows-breed inzetbaar voor elke app 
+- De standaard sneltoets F9 is aanpasbaar via het systeemvakpictogram
+- Multi-monitor support 
+- Toont 3 seconden een verificatievenster als een woord voorkomt
+- Mogelijkheid om door te klikken naar Woordenlijst.org als een woord niet voorkomt 
+- Toont automatisch het juiste lidwoord en het geslacht van zelfstandige naamwoorden
+
+## Referenties
+Deze Python-tool maakt gebruik van de volgende databases, maar is op geen enkele andere wijze gelieerd aan aan de organisaties die deze beheren.
+
+Het woordenbestand en de applicatie op [Woordenlijst.org](https://woordenlijst.org/) worden ontwikkeld en beheerd door het [Instituut voor de Nederlandse Taal](https://ivdnt.org/) in opdracht van de [Taalunie](https://taalunie.org/). Het woordenbestand en de applicatie op [Onzetaal.nl](https://onzetaal.nl/taalloket/zoek-spelling) worden ontwikkeld en beheerd door [Genootschap Onze Taal](https://onzetaal.nl) en [Uitgeverij Unieboek Het Spectrum bv](https://www.prisma.nl/).
+
+## Installatie
+Ga naar [Releases](../../releases/), download het meest recente bestand en voer het programma uit. Het pakket bevat de Python-toepassing en alle benodigde afhankelijkheden in één bestand. Als u Python al op uw computer hebt staan, kunt u ook alleen het Python-bestand downloaden en uitvoeren.
+
+## Gebruik
+Selecteer het woord dat u wilt opzoeken (Ctrl+Shift+Pijl links/rechts), druk op F9 en kijk op uw scherm.
+
+Als het geselecteerde woord voorkomt in de database van Woordenlijst.org, verschijnt er een pop-upvenstertje ter verificatie dat u het hebt gespeld volgens de officiële spelling van het Nederlands. Dit venstertje verdwijnt na drie seconden automatisch weer. Ondertussen kunt u gewoon verdergaan met uw werk. Als u wilt dat het pop-upvenster zichtbaar blijft, klik er dan op.
+
+Woordenlijst-checker toont ook het woordgeslacht van het opgevraagde zelfstandig naamwoord, samen met het lidwoord of de lidwoorden die erbij horen. Als een meervoudsvorm gelijk is aan de infinitief (bv. harken), dan wordt dit vermeld in het pop-upvenster.
+
+Als het woord niet in de officiële Woordenlijst van de Nederlandse Taal staat, verschijnt er een dialoogvenster met mogelijke suggesties. Als er een alternatieve 'Witte spelling' beschikbaar is op Onzetaal.nl, wordt deze ook weergegeven. Het gekopieerde woord blijft op uw Windows-klembord staan.
+
+## Aanpassen sneltoets of pop-uppositie 
+Bij de eerste keer opstarten creëert Woordenlijst-checker een configuratiebestand met F9 als standaard sneltoets. Als deze standaard sneltoets conflicteert met andere software op uw systeem, kunt u die sneltoets aanpassen. Rechtsklik op het systeemvakpictogram van Woordenlijst-checker, open 'Instellingen', vervang F9 door de gewenste sneltoets en klik op 'Opslaan'.
+
+U kunt aanpassen waar de pop-ups op uw scherm verschijnen en op welke monitor (indien van toepassing). Sleep het pop-upvenster naar de gewenste locatie op een scherm. De tool onthoudt de locatie. De volgende keer dat u een woord zoekt, opent het pop-upvenster op deze plek.
+
+Valt het pop-upvenster buiten het zichtbare gebied van uw scherm? Klik op het systeemvakpictogram van Woordenlijst-checker, ga naar Instellingen en klik op 'Positie resetten'.
+
+Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictogrammen automatisch in de overloopbalk (het pijlt naast de klok). U kunt het pictogram ook zichtbaar maken via **Persoonlijke instellingen > Taakbalk > Andere systeemvakpictogrammen**.
+
+## Demo
+https://youtu.be/wGiD9uJ44wc
+
+## Support
+Hulp of ondersteuning nodig? Ga naar https://www.blackkite.nl/nieuws/woordenlijst-checker.php
+
+<br><br><br>
+
+
+
+# <a name="english">Woordenlijst-checker</a>
 A handy tool to quickly look-up words in Woordenlijst.org within your active Windows-app
 
 ## Introduction
