@@ -273,6 +273,7 @@ def check_word_online(word):
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
 
             # LIDWOORDEXTRACTIE - gebaseerd op part_of_speech
+            article = None  # initialiseer vóór de conditionele takken
             gender_info_list = []  # lijst van dicts met article/gender combinaties
             gender = None
 
@@ -281,14 +282,17 @@ def check_word_online(word):
             if re.search(plural_pattern, xml_content, re.DOTALL):
                 is_plural_noun = True  # Altijd True bij meervoud, ook als tevens enkelvoud
 
-                # Artikel: 'de' tenzij het woord ook als enkelvoud voorkomt (invariante naamwoorden)
-                singular_pattern = r'<label>enkelvoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-                if not re.search(singular_pattern, xml_content, re.DOTALL):
+                # Strikte check: ook enkelvoud? (\s* maar geen DOTALL om XML-grensoverschrijding te voorkomen)
+                is_also_singular = bool(re.search(
+                    r'<label>enkelvoud</label>\s*<wordform>' + re.escape(word_normalized) + r'</wordform>',
+                    xml_content
+                ))
+                if not is_also_singular:
                     article = 'de'
                     gender = None
                     gender_info_list = None
                     print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
-                # else: gender-extractie draait hieronder voor artikel (invariante naamwoorden zoals chassis)
+                # else: invariant naamwoord (chassis e.d.) → article blijft None
             else:
                 # Voor enkelvoud: verzamel genders per lemma voorkomen
                 lemma_entries = []
