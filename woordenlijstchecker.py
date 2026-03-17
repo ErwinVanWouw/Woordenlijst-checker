@@ -266,9 +266,13 @@ def check_word_online(word):
             is_verb = False
             is_plural_noun = False
 
-            # Check of het een werkwoord is
-            verb_pattern = r'<lemma>' + re.escape(word_normalized) + r'</lemma>.*?<label>hoofdwerkwoord</label>'
-            if re.search(verb_pattern, xml_content, re.DOTALL):
+            # Check of het een werkwoord is (per found_lemmata-blok, om cross-entry matches te voorkomen)
+            found_lemmata_blocks = re.findall(r'<found_lemmata>.*?</found_lemmata>', xml_content, re.DOTALL)
+            if any(
+                re.search(r'<lemma>' + re.escape(word_normalized) + r'</lemma>', block)
+                and re.search(r'<label>hoofdwerkwoord</label>', block)
+                for block in found_lemmata_blocks
+            ):
                 is_verb = True
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
 
