@@ -77,7 +77,7 @@ def _start_tray():
     menu = pystray.Menu(
         pystray.MenuItem(f'Woordenlijst-checker v{VERSION}', None, enabled=False),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem('Help', _on_tray_help, default=True),
+        pystray.MenuItem('Help', _on_tray_help),
         pystray.MenuItem('Instellingen...', _on_tray_instellingen),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem('Afsluiten', _on_tray_afsluiten),
