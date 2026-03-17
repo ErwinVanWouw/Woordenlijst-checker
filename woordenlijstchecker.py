@@ -267,7 +267,7 @@ def check_word_online(word):
             is_plural_noun = False
 
             # Check of het een werkwoord is
-            verb_pattern = r'<label>hoofdwerkwoord</label><lemma>' + re.escape(word_normalized) + r'</lemma>'
+            verb_pattern = r'<label>hoofdwerkwoord</label>\s*<lemma>' + re.escape(word_normalized) + r'</lemma>'
             if re.search(verb_pattern, xml_content):
                 is_verb = True
                 print(f"[Info] Werkwoord gedetecteerd: {word_normalized}")
@@ -282,11 +282,13 @@ def check_word_online(word):
             if re.search(plural_pattern, xml_content, re.DOTALL):
                 is_plural_noun = True  # Altijd True bij meervoud, ook als tevens enkelvoud
 
-                # Strikte check: ook enkelvoud? (\s* maar geen DOTALL om XML-grensoverschrijding te voorkomen)
-                is_also_singular = bool(re.search(
-                    r'<label>enkelvoud</label>\s*<wordform>' + re.escape(word_normalized) + r'</wordform>',
-                    xml_content
-                ))
+                # Check: ook enkelvoud? Zoek binnen hetzelfde paradigma-blok (voorkomt grensoverschrijding)
+                paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
+                is_also_singular = any(
+                    re.search(r'<label>enkelvoud</label>', block) and
+                    re.search(r'<wordform>' + re.escape(word_normalized) + r'</wordform>', block)
+                    for block in paradigm_blocks
+                )
                 if not is_also_singular:
                     article = 'de'
                     gender = None
