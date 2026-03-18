@@ -780,9 +780,6 @@ def show_over_popup():
 
 def controleer_op_updates():
     """Haal het versienummer op uit version.txt in de repository en vergelijk met VERSION."""
-    if threading.current_thread() is not threading.main_thread():
-        threading.Thread(target=controleer_op_updates, daemon=True).start()
-        return
     try:
         response = requests.get(UPDATE_CHECK_URL, timeout=5)
         response.raise_for_status()
