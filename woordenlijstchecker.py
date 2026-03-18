@@ -692,7 +692,7 @@ def show_help_popup():
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
         close_frame = tk.Frame(popup)
-        close_frame.pack(side='bottom', fill='x', pady=(0, 10))
+        close_frame.pack(side='bottom', fill='x', pady=(10, 10))
         tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
 
         frame = tk.Frame(popup)
