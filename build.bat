@@ -1,1 +1,0 @@
-C:\Python314\python.exe -m PyInstaller --onefile --noupx --noconsole --version-file=version_info.txt --icon="favicon.ico" --add-data "favicon.ico;." --add-data="README.md;." --add-data="over.txt;." --hidden-import pystray._win32 --collect-submodules PIL woordenlijstchecker.py

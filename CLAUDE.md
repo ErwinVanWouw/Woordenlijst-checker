@@ -22,11 +22,10 @@ Woordenlijst-checker/
 ├── LICENSE                  # GNU GPLv3
 ├── over.txt                 # App info shown in the "Over" popup
 ├── version.txt              # Current version number (used for update checks)
-├── build.bat                # PyInstaller build command (Windows)
 └── config.ini               # Auto-generated at runtime (NOT in repo)
 ```
 
-There are **no subdirectories, no test files, and no CI/CD configuration.** A `build.bat` script is included for building the `.exe` with PyInstaller.
+There are **no subdirectories, no test files, and no CI/CD configuration.**
 
 ---
 
@@ -178,7 +177,7 @@ To install third-party dependencies manually:
 pip install requests keyboard pyperclip pystray Pillow
 ```
 
-The distributed `.exe` bundles all dependencies via PyInstaller (referenced by `sys._MEIPASS` checks in the code). See `build.bat` for the exact build command.
+The distributed `.exe` bundles all dependencies via PyInstaller (referenced by `sys._MEIPASS` checks in the code).
 
 ---
 
@@ -246,22 +245,6 @@ On startup, the script:
 3. Listens until Escape is pressed
 
 **Note:** The `keyboard` library requires administrator/root privileges on most systems for global hotkey capture.
-
----
-
-## Building the Executable
-
-Use `build.bat` to build the `.exe` with PyInstaller:
-
-```bat
-C:\Python314\python.exe -m PyInstaller --onefile --noupx --noconsole --version-file=version_info.txt --icon="favicon.ico" --add-data "favicon.ico;." --add-data="README.md;." --add-data="over.txt;." --hidden-import pystray._win32 --collect-submodules PIL woordenlijstchecker.py
-```
-
-Key flags:
-- `--add-data="over.txt;."` — bundles `over.txt` so the "Over" popup works in the `.exe`
-- `--add-data="README.md;."` — bundles `README.md` for the help popup
-- `--hidden-import pystray._win32` — required for tray icon on Windows
-- `--collect-submodules PIL` — ensures all Pillow modules are included
 
 ---
 
