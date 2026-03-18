@@ -188,7 +188,7 @@ All dependencies are third-party Python packages. There is no `requirements.txt`
 | `pyperclip` | Cross-platform clipboard read/write |
 | `pystray` | System tray icon and menu |
 | `Pillow` (`PIL`) | Tray icon image creation |
-| Standard library: `tkinter`, `threading`, `configparser`, `os`, `re`, `sys`, `time`, `webbrowser`, `urllib.parse`, `warnings`, `collections.deque`, `html`, `ctypes` | Various built-in functionality |
+| Standard library: `tkinter`, `threading`, `configparser`, `os`, `re`, `sys`, `time`, `urllib.parse`, `warnings`, `collections.deque`, `html`, `ctypes` | Various built-in functionality |
 
 To install third-party dependencies manually:
 ```bash
@@ -243,6 +243,7 @@ Dutch nouns have grammatical gender. The code extracts this from `lemma_part_of_
 - **No linter config**: No `.flake8`, `.pylintrc`, or `pyproject.toml` exist. Follow PEP 8 style.
 - **Error handling**: All network calls are wrapped in try-except. Errors are printed to stdout using `[Tag]` prefix format (e.g., `[Fout]`, `[Info]`, `[Waarschuwing]`, `[Resultaat]`).
 - **GUI**: Uses `tkinter` only. Do not introduce other GUI frameworks.
+- **Opening URLs**: Use `os.startfile(url)` to open URLs in the user's default browser. Do **not** use `webbrowser.open()` — on Windows this can ignore the configured default browser and open Edge instead.
 - **Threading**: `perform_check()` always runs in a separate thread to keep the hotkey listener responsive. Any tkinter calls from threads should use `.after()` or be in the spawned thread's own mainloop.
 
 ---
