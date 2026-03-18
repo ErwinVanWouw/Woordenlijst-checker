@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.2.8) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -17,13 +17,16 @@ This file provides guidance for AI assistants working in this repository.
 
 ```
 Woordenlijst-checker/
-├── woordenlijstchecker.py   # Entire application — 835 lines, single file
+├── woordenlijstchecker.py   # Entire application — ~1347 lines, single file
 ├── README.md                # End-user documentation
 ├── LICENSE                  # GNU GPLv3
+├── over.txt                 # App info shown in the "Over" popup
+├── version.txt              # Current version number (used for update checks)
+├── build.bat                # PyInstaller build command (Windows)
 └── config.ini               # Auto-generated at runtime (NOT in repo)
 ```
 
-There are **no subdirectories, no test files, no build system, and no CI/CD configuration.**
+There are **no subdirectories, no test files, and no CI/CD configuration.** A `build.bat` script is included for building the `.exe` with PyInstaller.
 
 ---
 
@@ -35,6 +38,7 @@ The application is a **monolithic single-file Python script**. All logic lives i
 
 ```
 main()
+ ├─ _start_tray()                    ← starts pystray tray icon in separate thread
  └─ keyboard.add_hotkey(HOTKEY, ...) ← registers global hotkey (default: F9)
        └─ threading.Thread(target=perform_check).start()
              ├─ check_rate_limit()           ← max 30 requests/minute
@@ -43,13 +47,21 @@ main()
              └─ show_success_popup() OR show_failure_popup()
 ```
 
-The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new thread for non-blocking UI.
+The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new thread for non-blocking UI. The tray icon runs in its own thread and dispatches menu actions back to the tkinter thread via `_popup_root.after()`.
 
 ---
 
 ## Key Functions
 
-### Configuration (`lines 48–143`)
+### System Tray
+The application runs as a system tray icon (via `pystray`) with the following menu items:
+- **Over** — opens the "Over" popup (reads `over.txt`)
+- **Controleer op updates** — fetches `version.txt` from GitHub and compares with `VERSION`
+- **Help** — opens the help popup (reads `README.md`)
+- **Instellingen...** — opens the settings/config popup
+- **Afsluiten** — quits the application
+
+### Configuration
 | Function | Purpose |
 |---|---|
 | `load_config()` | Reads or auto-creates `config.ini`; returns `(hotkey, popup_x, popup_y, config_file)` |
@@ -57,12 +69,12 @@ The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new
 | `get_popup_position(w, h)` | Returns saved position or falls back to center |
 | `get_center_position(w, h)` | Calculates screen center using tkinter screen metrics |
 
-### Rate Limiting (`lines 24–45`)
+### Rate Limiting
 | Function | Purpose |
 |---|---|
 | `check_rate_limit()` | Enforces max 30 API requests/minute using a `deque`; shows warning dialog if exceeded |
 
-### Core Word Checking (`lines 146–486`)
+### Core Word Checking
 | Function | Purpose |
 |---|---|
 | `check_word_online(word)` | Main business logic — queries the API, parses XML, returns 7-tuple |
@@ -74,17 +86,30 @@ The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new
  word_info: dict|None, gender: str|None, gender_info_list: list|None)
 ```
 
-### UI / Popups (`lines 489–771`)
+### UI / Popups
 | Function | Purpose |
 |---|---|
 | `show_success_popup(word, article, word_info, gender, gender_info_list)` | Green checkmark popup, auto-closes after 3 seconds; supports homonyms, plurals, ambiguous words |
 | `show_failure_popup(word, error_message)` | Error dialog with clickable suggestion links and Yes/No buttons to open woordenlijst.org |
+| `show_over_popup()` | "Over" dialog — reads and displays `over.txt` |
+| `show_help_popup()` | Help dialog — reads and displays `README.md` with inline link rendering |
+| `show_config_popup()` | Settings dialog — lets user change hotkey and reset popup position |
+| `show_invoerfilter_popup(word, reden)` | Warning dialog shown when input is filtered (e.g. too short, non-word) |
+| `controleer_op_updates()` | Fetches `version.txt` via `UPDATE_CHECK_URL`; shows result dialog |
 
-### Entry Points (`lines 774–835`)
+### Helper Functions
+| Function | Purpose |
+|---|---|
+| `_get_readme_path()` | Returns path to `README.md` (works for `.py` and `.exe`) |
+| `_get_over_path()` | Returns path to `over.txt` (works for `.py` and `.exe`) |
+| `_set_icon(window)` | Sets the app icon on a tkinter window |
+| `_render_inline(text_widget, line, link_counter)` | Renders markdown inline links in a `Text` widget |
+
+### Entry Points
 | Function | Purpose |
 |---|---|
 | `perform_check()` | Orchestrates clipboard read → API check → popup display |
-| `main()` | Registers global hotkey, starts the blocking keyboard listener loop |
+| `main()` | Registers global hotkey, starts tray icon, starts the blocking keyboard listener loop |
 
 ---
 
@@ -141,17 +166,19 @@ All dependencies are third-party Python packages. There is no `requirements.txt`
 
 | Package | Purpose |
 |---|---|
-| `requests` | HTTP calls to woordenlijst.org API |
+| `requests` | HTTP calls to woordenlijst.org API and update check |
 | `keyboard` | Global hotkey registration and Ctrl+C simulation |
 | `pyperclip` | Cross-platform clipboard read/write |
-| Standard library: `tkinter`, `threading`, `configparser`, `os`, `re`, `sys`, `time`, `webbrowser`, `urllib.parse`, `warnings`, `collections.deque`, `datetime` | Various built-in functionality |
+| `pystray` | System tray icon and menu |
+| `Pillow` (`PIL`) | Tray icon image creation |
+| Standard library: `tkinter`, `threading`, `configparser`, `os`, `re`, `sys`, `time`, `webbrowser`, `urllib.parse`, `warnings`, `collections.deque`, `html`, `ctypes` | Various built-in functionality |
 
 To install third-party dependencies manually:
 ```bash
-pip install requests keyboard pyperclip
+pip install requests keyboard pyperclip pystray Pillow
 ```
 
-The distributed `.exe` bundles all dependencies via PyInstaller (referenced by `sys._MEIPASS` checks in the code).
+The distributed `.exe` bundles all dependencies via PyInstaller (referenced by `sys._MEIPASS` checks in the code). See `build.bat` for the exact build command.
 
 ---
 
@@ -219,6 +246,22 @@ On startup, the script:
 3. Listens until Escape is pressed
 
 **Note:** The `keyboard` library requires administrator/root privileges on most systems for global hotkey capture.
+
+---
+
+## Building the Executable
+
+Use `build.bat` to build the `.exe` with PyInstaller:
+
+```bat
+C:\Python314\python.exe -m PyInstaller --onefile --noupx --noconsole --version-file=version_info.txt --icon="favicon.ico" --add-data "favicon.ico;." --add-data="README.md;." --add-data="over.txt;." --hidden-import pystray._win32 --collect-submodules PIL woordenlijstchecker.py
+```
+
+Key flags:
+- `--add-data="over.txt;."` — bundles `over.txt` so the "Over" popup works in the `.exe`
+- `--add-data="README.md;."` — bundles `README.md` for the help popup
+- `--hidden-import pystray._win32` — required for tray icon on Windows
+- `--collect-submodules PIL` — ensures all Pillow modules are included
 
 ---
 
