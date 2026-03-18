@@ -6,7 +6,6 @@ import requests
 import keyboard
 import pyperclip
 import threading
-import webbrowser
 from urllib.parse import quote
 import tkinter as tk
 from tkinter import messagebox
@@ -685,7 +684,7 @@ def _render_inline(text_widget, line, link_counter):
             link_text = link_url
         text_widget.tag_configure(tag, foreground='blue', underline=True)
         text_widget.insert('end', link_text, tag)
-        text_widget.tag_bind(tag, '<Button-1>', lambda e, u=link_url: webbrowser.open_new_tab(u))
+        text_widget.tag_bind(tag, '<Button-1>', lambda e, u=link_url: os.startfile(u))
         last_end = m.end()
     if last_end < len(line):
         text_widget.insert('end', line[last_end:], 'normal')
@@ -1089,7 +1088,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 # Maak woordlabels klikbaar als hyperlink
                 for lbl, url in word_labels:
                     lbl.config(fg='blue', cursor='hand2', font=("Arial", 12, "underline"))
-                    lbl.bind('<Button-1>', lambda e, u=url: [webbrowser.open_new_tab(u), popup.destroy()])
+                    lbl.bind('<Button-1>', lambda e, u=url: [os.startfile(u), popup.destroy()])
                 # Zet focus op pop-up zodat Enter het venster sluit
                 popup.focus_set()
                 popup.bind('<Return>', lambda e: popup.destroy())
@@ -1184,7 +1183,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
 
                 def open_suggestion_and_close(suggestion):
                     """Open suggestielink en sluit pop-up"""
-                    webbrowser.open_new_tab(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
+                    os.startfile(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
                     dialog.destroy()
 
                 for suggestion in suggestions[:3]:
@@ -1210,7 +1209,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
             )
             alt_link.pack(pady=(0, 5))
-            alt_link.bind("<Button-1>", lambda e: [webbrowser.open_new_tab(alt_url), dialog.destroy()])
+            alt_link.bind("<Button-1>", lambda e: [os.startfile(alt_url), dialog.destroy()])
 
         # Vraag om website te openen
         tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
@@ -1220,7 +1219,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         button_frame.pack(pady=10)
 
         def yes_action():
-            webbrowser.open_new_tab(url_to_open)
+            os.startfile(url_to_open)
             dialog.destroy()
 
         def no_action():
