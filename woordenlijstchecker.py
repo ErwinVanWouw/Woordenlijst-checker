@@ -751,7 +751,7 @@ def show_over_popup():
         popup.resizable(False, False)
         popup.attributes('-topmost', True)
         _set_icon(popup)
-        popup_width, popup_height = 400, 270
+        popup_width, popup_height = 400, 300
         x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
