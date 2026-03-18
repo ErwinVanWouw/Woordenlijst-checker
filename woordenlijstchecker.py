@@ -851,21 +851,25 @@ def show_config_popup():
         x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
-        popup.columnconfigure(0, weight=1)
-        popup.columnconfigure(1, weight=1)
 
-        tk.Label(popup, text="Sneltoets:", font=("Arial", 10)).grid(
-            row=0, column=0, padx=15, pady=(20, 5), sticky='e')
+        close_frame = tk.Frame(popup)
+        close_frame.pack(side='bottom', fill='x', pady=(10, 10))
+        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
+
+        content = tk.Frame(popup)
+        content.pack(fill='both', expand=True, padx=15, pady=(15, 0))
+
+        sneltoets_frame = tk.Frame(content)
+        sneltoets_frame.pack(anchor='w', pady=(5, 0))
+        tk.Label(sneltoets_frame, text="Sneltoets:", font=("Arial", 10)).pack(side='left')
         hotkey_var = tk.StringVar(value=HOTKEY)
-        hotkey_entry = tk.Entry(popup, textvariable=hotkey_var, width=20, font=("Arial", 10))
-        hotkey_entry.grid(row=0, column=1, padx=10, pady=(20, 5), sticky='w')
+        hotkey_entry = tk.Entry(sneltoets_frame, textvariable=hotkey_var, width=20, font=("Arial", 10))
+        hotkey_entry.pack(side='left', padx=(8, 0))
 
-        save_frame = tk.Frame(popup)
-        save_frame.grid(row=1, column=0, columnspan=2, pady=(0, 5))
-        tk.Button(save_frame, text="Opslaan", command=lambda: sla_hotkey_op(), width=12).pack()
+        tk.Button(content, text="Opslaan", command=lambda: sla_hotkey_op(), width=12).pack(anchor='w', pady=(8, 0))
 
-        status_label = tk.Label(popup, text="", font=("Arial", 9), fg='gray')
-        status_label.grid(row=2, column=0, columnspan=2, pady=(0, 5))
+        status_label = tk.Label(content, text="", font=("Arial", 9), fg='gray')
+        status_label.pack(anchor='w', pady=(4, 0))
 
         def sla_hotkey_op():
             global HOTKEY
@@ -912,14 +916,10 @@ def show_config_popup():
             status_label.config(text="Pop-uppositie gereset naar centrum.", fg='green')
             print("[Config] Pop-uppositie gereset")
 
-        positie_frame = tk.Frame(popup)
-        positie_frame.grid(row=3, column=0, columnspan=2, pady=(5, 0))
-        tk.Label(positie_frame, text="Positie van pop-ups:", font=("Arial", 10)).pack(side='left', padx=(0, 8))
-        tk.Button(positie_frame, text="Reset", command=reset_positie, width=8).pack(side='left')
-
-        close_frame = tk.Frame(popup)
-        close_frame.grid(row=4, column=0, columnspan=2, pady=(15, 10), sticky='ew')
-        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
+        positie_frame = tk.Frame(content)
+        positie_frame.pack(anchor='w', pady=(15, 0))
+        tk.Label(positie_frame, text="Positie van pop-ups:", font=("Arial", 10)).pack(side='left')
+        tk.Button(positie_frame, text="Reset", command=reset_positie, width=8).pack(side='left', padx=(8, 0))
 
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
