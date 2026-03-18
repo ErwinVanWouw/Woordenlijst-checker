@@ -26,6 +26,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 VERSION = "1.3"
 
+# URL naar version.txt in de publieke repository (voor updatecontrole)
+UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
+
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
 
@@ -43,6 +46,16 @@ def _laad_tray_icoon_image():
         return Image.open(icon_path).resize((32, 32))
     except Exception:
         return Image.new('RGBA', (32, 32), (0, 120, 215, 255))
+
+
+def _on_tray_over(icon, item):
+    if _popup_root:
+        _popup_root.after(0, lambda: threading.Thread(target=show_over_popup).start())
+
+
+def _on_tray_updates(icon, item):
+    if _popup_root:
+        _popup_root.after(0, lambda: threading.Thread(target=controleer_op_updates).start())
 
 
 def _on_tray_help(icon, item):
@@ -75,7 +88,8 @@ def _start_tray():
     """Maak het systeemvakicoon aan en start het in een aparte thread."""
     global _tray_icon
     menu = pystray.Menu(
-        pystray.MenuItem(f'Woordenlijst-checker v{VERSION}', None, enabled=False),
+        pystray.MenuItem('Over', _on_tray_over),
+        pystray.MenuItem('Controleer op updates', _on_tray_updates),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem('Help', _on_tray_help),
         pystray.MenuItem('Instellingen...', _on_tray_instellingen),
@@ -633,6 +647,12 @@ def _get_readme_path():
     return os.path.join(base, 'README.md')
 
 
+def _get_over_path():
+    """Retourneert het pad naar over.txt (werkt zowel als .py als .exe)."""
+    base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, 'over.txt')
+
+
 def _render_inline(text_widget, line, link_counter):
     """Render een tekstregel met inline markdown-links naar een tkinter Text-widget."""
     pattern = r'\[([^\]]+)\]\(([^)]+)\)|(https?://\S+)'
@@ -718,6 +738,68 @@ def show_help_popup():
         _popup_root.wait_window(popup)
     except Exception as e:
         print(f"[Fout] Kon helppop-up niet tonen: {e}")
+
+
+def show_over_popup():
+    """Toon een eenvoudig 'Over'-venster op basis van over.txt."""
+    if threading.current_thread() is not threading.main_thread():
+        done = threading.Event()
+        def _dispatch():
+            show_over_popup()
+            done.set()
+        _popup_root.after(0, _dispatch)
+        done.wait()
+        return
+    try:
+        popup = tk.Toplevel(_popup_root)
+        popup.title(f"Over – Woordenlijst-checker")
+        popup.resizable(False, False)
+        popup.attributes('-topmost', True)
+        _set_icon(popup)
+        popup_width, popup_height = 380, 220
+        x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
+        y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
+        popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+
+        over_path = _get_over_path()
+        if os.path.exists(over_path):
+            with open(over_path, 'r', encoding='utf-8') as f:
+                tekst = f.read()
+        else:
+            tekst = f"Woordenlijst-checker v{VERSION}\n\nover.txt niet gevonden."
+
+        label = tk.Label(popup, text=tekst, justify='left', font=("Arial", 10),
+                         padx=20, pady=15, wraplength=340)
+        label.pack(fill='both', expand=True)
+        tk.Button(popup, text="Sluiten", command=popup.destroy, width=10).pack(pady=(0, 12))
+        popup.bind('<Escape>', lambda e: popup.destroy())
+        _popup_root.wait_window(popup)
+    except Exception as e:
+        print(f"[Fout] Kon over-pop-up niet tonen: {e}")
+
+
+def controleer_op_updates():
+    """Haal het versienummer op uit version.txt in de repository en vergelijk met VERSION."""
+    if threading.current_thread() is not threading.main_thread():
+        threading.Thread(target=controleer_op_updates, daemon=True).start()
+        return
+    try:
+        response = requests.get(UPDATE_CHECK_URL, timeout=5)
+        response.raise_for_status()
+        nieuwste = response.text.strip()
+        if nieuwste == VERSION:
+            bericht = f"Je gebruikt de nieuwste versie ({VERSION})."
+            titel = "Geen updates beschikbaar"
+        else:
+            bericht = f"Er is een nieuwe versie beschikbaar: {nieuwste}\n(je hebt versie {VERSION})"
+            titel = "Update beschikbaar"
+        _popup_root.after(0, lambda: messagebox.showinfo(titel, bericht))
+    except Exception as e:
+        print(f"[Fout] Updatecontrole mislukt: {e}")
+        _popup_root.after(0, lambda: messagebox.showwarning(
+            "Updatecontrole mislukt",
+            "Kon de updateserver niet bereiken.\nControleer je internetverbinding."
+        ))
 
 
 def show_config_popup():

@@ -1,0 +1,11 @@
+Woordenlijst-checker v1.3
+
+Een hulpmiddel voor redacteuren, proeflezers en vertalers om
+snel Nederlandse spelling te controleren op basis van de
+officiële woordenlijst (woordenlijst.org).
+
+Druk op de sneltoets (standaard: F9) terwijl een woord
+geselecteerd is om het direct te controleren.
+
+Auteur:    Black Kite (blackkite.nl)
+Licentie:  GNU General Public License v3
