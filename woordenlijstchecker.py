@@ -888,7 +888,7 @@ def show_config_popup():
         hotkey_entry = tk.Entry(sneltoets_frame, textvariable=hotkey_var, width=20, font=("Arial", 10))
         hotkey_entry.pack(side='left', padx=(8, 0))
 
-        tk.Button(content, text="Opslaan", command=lambda: sla_hotkey_op(), width=12).pack(anchor='w', pady=(8, 0))
+        tk.Button(content, text="Wijzig", command=lambda: sla_hotkey_op(), width=12).pack(anchor='w', pady=(8, 0))
 
         status_label = tk.Label(content, text="", font=("Arial", 9), fg='gray')
         status_label.pack(anchor='w', pady=(4, 0))
@@ -939,10 +939,8 @@ def show_config_popup():
             status_label.config(text="Pop-uppositie gereset naar centrum.", fg='green')
             print("[Config] Pop-uppositie gereset")
 
-        positie_frame = tk.Frame(content)
-        positie_frame.pack(anchor='w', pady=(15, 0))
-        tk.Label(positie_frame, text="Positie van pop-ups:", font=("Arial", 10)).pack(side='left')
-        tk.Button(positie_frame, text="Reset", command=reset_positie, width=8).pack(side='left', padx=(8, 0))
+        tk.Label(content, text="Positie van pop-ups opnieuw instellen.", font=("Arial", 10)).pack(anchor='w', pady=(15, 0))
+        tk.Button(content, text="Reset positie", command=reset_positie, width=14).pack(anchor='w', pady=(4, 0))
 
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
