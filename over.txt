@@ -1,4 +1,4 @@
-Woordenlijst-checker v1.3
+Woordenlijst-checker v1.5
 
 Een hulpmiddel voor redacteuren, proeflezers en vertalers om
 snel Nederlandse spelling te controleren op basis van de
