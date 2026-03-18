@@ -806,13 +806,26 @@ def controleer_op_updates():
         else:
             bericht = f"Er is een nieuwe versie beschikbaar: {nieuwste}\n(je hebt versie {VERSION})"
             titel = "Update beschikbaar"
-        _popup_root.after(0, lambda: messagebox.showinfo(titel, bericht))
+        def _toon():
+            ouder = tk.Toplevel(_popup_root)
+            ouder.withdraw()
+            ouder.attributes('-topmost', True)
+            messagebox.showinfo(titel, bericht, parent=ouder)
+            ouder.destroy()
+        _popup_root.after(0, _toon)
     except Exception as e:
         print(f"[Fout] Updatecontrole mislukt: {e}")
-        _popup_root.after(0, lambda: messagebox.showwarning(
-            "Updatecontrole mislukt",
-            "Kon de updateserver niet bereiken.\nControleer je internetverbinding."
-        ))
+        def _toon_fout():
+            ouder = tk.Toplevel(_popup_root)
+            ouder.withdraw()
+            ouder.attributes('-topmost', True)
+            messagebox.showwarning(
+                "Updatecontrole mislukt",
+                "Kon de updateserver niet bereiken.\nControleer je internetverbinding.",
+                parent=ouder
+            )
+            ouder.destroy()
+        _popup_root.after(0, _toon_fout)
 
 
 def show_config_popup():
