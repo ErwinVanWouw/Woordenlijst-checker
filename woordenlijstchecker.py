@@ -215,18 +215,19 @@ def get_popup_position(width, height):
     if POPUP_X == -1 or POPUP_Y == -1:
         return center()
 
-    # Valideer of opgeslagen positie binnen de virtuele schermruimte valt (alle monitoren)
+    # Valideer of opgeslagen positie zichtbaar is op de virtuele schermruimte (alle monitoren).
+    # Minimaal de helft van de popup breedte én hoogte moet binnen het schermgebied vallen.
     try:
         u32 = ctypes.windll.user32
         virt_x = u32.GetSystemMetrics(76)   # SM_XVIRTUALSCREEN
         virt_y = u32.GetSystemMetrics(77)   # SM_YVIRTUALSCREEN
         virt_w = u32.GetSystemMetrics(78)   # SM_CXVIRTUALSCREEN
         virt_h = u32.GetSystemMetrics(79)   # SM_CYVIRTUALSCREEN
-        margin = 100
-        if (POPUP_X + width  < virt_x - margin or
-                POPUP_Y + height < virt_y - margin or
-                POPUP_X > virt_x + virt_w + margin or
-                POPUP_Y > virt_y + virt_h + margin):
+        # Popup is zichtbaar als het middelpunt binnen de virtuele schermruimte valt
+        popup_cx = POPUP_X + width  // 2
+        popup_cy = POPUP_Y + height // 2
+        if (popup_cx < virt_x or popup_cx > virt_x + virt_w or
+                popup_cy < virt_y or popup_cy > virt_y + virt_h):
             print("[Info] Opgeslagen positie niet bereikbaar, gebruik centrum")
             return center()
         return POPUP_X, POPUP_Y
@@ -476,6 +477,17 @@ def check_word_online(word):
                     if lowercase_versions and uppercase_versions:
                         continue
 
+                    # Zin-beginwoord (bijv. 'Fiets'): alleen eerste letter is hoofdletter, rest klein.
+                    # Laat de UITZONDERING-check hieronder dit geval afhandelen.
+                    is_sentence_caps = (
+                        len(word_normalized) > 1 and
+                        word_normalized[0].isupper() and
+                        word_normalized[1:].islower() and
+                        ' ' not in word_normalized
+                    )
+                    if is_sentence_caps:
+                        continue
+
                     error_msg = f"Gebruik '{lemma}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
                     return False, word, error_msg, None, None, None, None
@@ -596,12 +608,12 @@ def check_prisma_alternatief(word):
 
         if type_a:
             # Type A: unitname = witte spelling, lref = groene spelling
-            alt_word = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
+            alt_word = html.unescape(re.sub(r'<[^>]*>', '', unitname_html).strip())
             officiele_spelling = html.unescape(lref_match.group(1)) if lref_match else None
         else:
             # Type B: lref = witte spelling, unitname = groene spelling
             alt_word = html.unescape(lref_match.group(1)) if lref_match else None
-            officiele_spelling = html.unescape(re.sub(r'<.*', '', unitname_html).strip())
+            officiele_spelling = html.unescape(re.sub(r'<[^>]*>', '', unitname_html).strip())
 
         if not alt_word:
             return None
@@ -625,7 +637,13 @@ def _set_icon(window):
         print(f"[Info] Kon icoon niet laden: {e}")
 
 def _bind_drag_save(window):
-    """Sla pop-uppositie op zodra het venster wordt verplaatst"""
+    """Sla pop-uppositie op zodra het venster wordt verplaatst.
+
+    <Configure> vuurt bij elke pixelbeweging; de drempel van 5 px voorkomt
+    onnodige schrijfacties. POPUP_X/POPUP_Y zijn globals die door
+    save_popup_position() worden bijgewerkt, zodat de vergelijking altijd
+    tegen de meest recent opgeslagen positie werkt.
+    """
     def on_drag_end(event):
         if event.widget == window:
             new_x = window.winfo_x()
@@ -878,13 +896,14 @@ def show_config_popup():
             if not new_hotkey:
                 status_label.config(text="Sneltoets mag niet leeg zijn.", fg='red')
                 return
+            old_hotkey = HOTKEY  # Bewaar huidige waarde voor eventuele herstelactie
             try:
-                keyboard.remove_hotkey(HOTKEY)
+                keyboard.remove_hotkey(old_hotkey)
             except Exception:
                 pass
             try:
                 keyboard.add_hotkey(new_hotkey, lambda: threading.Thread(target=perform_check).start())
-                HOTKEY = new_hotkey
+                HOTKEY = new_hotkey  # Pas global pas aan na succesvolle registratie
                 config = configparser.ConfigParser()
                 config.read(CONFIG_FILE)
                 if 'Settings' not in config:
@@ -898,7 +917,7 @@ def show_config_popup():
                 status_label.config(text="Ongeldige sneltoets.", fg='red')
                 print(f"[Config] Ongeldige sneltoets '{new_hotkey}': {e}")
                 try:
-                    keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
+                    keyboard.add_hotkey(old_hotkey, lambda: threading.Thread(target=perform_check).start())
                 except Exception:
                     pass
 
@@ -1349,12 +1368,13 @@ def perform_check():
 
     # Geef feedback op basis van het resultaat
     if is_valid:
-        prisma_thread.join(timeout=0)  # Niet afwachten bij succes
         show_success_popup(checked_word, article, word_info, gender, gender_info_list)
     else:
         prisma_thread.join(timeout=6)  # Wacht max 6 seconden op Prisma
+        # Kopieer resultaat alleen als de thread daadwerkelijk klaar is; voorkomt race bij timeout
+        prisma_data = None if prisma_thread.is_alive() else prisma_result[0]
         if checked_word:
-            show_failure_popup(checked_word, error_message, prisma_result[0])
+            show_failure_popup(checked_word, error_message, prisma_data)
 
 # --- HOOFDFUNCTIE ---
 def main():
