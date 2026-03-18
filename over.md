@@ -6,5 +6,6 @@ zonder de Windows-app waarin u werkt te verlaten.
 
 Selecteer een woord en druk op de sneltoets (standaard: F9).
 
-Auteur:    Black Kite (blackkite.nl)
+Auteur:    [Black Kite](blackkite.nl)
+
 Licentie:  GNU General Public License v3
