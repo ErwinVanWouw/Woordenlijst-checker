@@ -53,10 +53,6 @@ def _on_tray_over(icon, item):
         _popup_root.after(0, lambda: threading.Thread(target=show_over_popup).start())
 
 
-def _on_tray_updates(icon, item):
-    if _popup_root:
-        _popup_root.after(0, lambda: threading.Thread(target=controleer_op_updates).start())
-
 
 def _on_tray_help(icon, item):
     if _popup_root:
@@ -89,7 +85,6 @@ def _start_tray():
     global _tray_icon
     menu = pystray.Menu(
         pystray.MenuItem('Over', _on_tray_over),
-        pystray.MenuItem('Controleer op updates', _on_tray_updates),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem('Help', _on_tray_help),
         pystray.MenuItem('Instellingen...', _on_tray_instellingen),
@@ -788,7 +783,10 @@ def show_over_popup():
             text.insert('end', f"Woordenlijst-checker v{VERSION}\n\nover.md niet gevonden.", 'normal')
 
         text.config(state='disabled')
-        tk.Button(popup, text="Sluiten", command=popup.destroy, width=10).pack(pady=(0, 10))
+        btn_frame = tk.Frame(popup)
+        btn_frame.pack(pady=(0, 10))
+        tk.Button(btn_frame, text="Controleer op updates", command=lambda: threading.Thread(target=controleer_op_updates).start()).pack(side='left', padx=5)
+        tk.Button(btn_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='left', padx=5)
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
     except Exception as e:
