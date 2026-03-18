@@ -845,7 +845,7 @@ def show_config_popup():
         popup.resizable(False, False)
         popup.attributes('-topmost', True)
         _set_icon(popup)
-        popup_width, popup_height = 380, 210
+        popup_width, popup_height = 380, 230
         x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
@@ -856,8 +856,12 @@ def show_config_popup():
         hotkey_entry = tk.Entry(popup, textvariable=hotkey_var, width=20, font=("Arial", 10))
         hotkey_entry.grid(row=0, column=1, padx=10, pady=(20, 5), sticky='w')
 
+        save_frame = tk.Frame(popup)
+        save_frame.grid(row=1, column=0, columnspan=2, pady=(0, 5))
+        tk.Button(save_frame, text="Opslaan", command=lambda: sla_hotkey_op(), width=12).pack()
+
         status_label = tk.Label(popup, text="", font=("Arial", 9), fg='gray')
-        status_label.grid(row=1, column=0, columnspan=2, pady=(0, 5))
+        status_label.grid(row=2, column=0, columnspan=2, pady=(0, 5))
 
         def sla_hotkey_op():
             global HOTKEY
@@ -904,14 +908,14 @@ def show_config_popup():
             status_label.config(text="Pop-uppositie gereset naar centrum.", fg='green')
             print("[Config] Pop-uppositie gereset")
 
-        btn_frame = tk.Frame(popup)
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=(5, 10))
-        tk.Button(btn_frame, text="Opslaan", command=sla_hotkey_op, width=12).pack(side='left', padx=5)
-        tk.Button(btn_frame, text="Positie resetten", command=reset_positie, width=14).pack(side='left', padx=5)
+        positie_frame = tk.Frame(popup)
+        positie_frame.grid(row=3, column=0, columnspan=2, pady=(5, 0))
+        tk.Label(positie_frame, text="Positie van pop-ups:", font=("Arial", 10)).pack(side='left', padx=(0, 8))
+        tk.Button(positie_frame, text="Reset", command=reset_positie, width=8).pack(side='left')
 
         close_frame = tk.Frame(popup)
-        close_frame.grid(row=3, column=0, columnspan=2, pady=(0, 10))
-        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack()
+        close_frame.grid(row=4, column=0, columnspan=2, pady=(15, 10), sticky='e')
+        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(padx=15)
 
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
