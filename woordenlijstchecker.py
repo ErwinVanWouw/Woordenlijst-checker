@@ -691,6 +691,10 @@ def show_help_popup():
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
+        close_frame = tk.Frame(popup)
+        close_frame.pack(side='bottom', fill='x', pady=(0, 10))
+        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
+
         frame = tk.Frame(popup)
         frame.pack(fill='both', expand=True, padx=10, pady=(10, 5))
         scrollbar = tk.Scrollbar(frame)
@@ -728,9 +732,6 @@ def show_help_popup():
             text.insert('end', 'README.md niet gevonden.', 'normal')
 
         text.config(state='disabled')
-        close_frame = tk.Frame(popup)
-        close_frame.pack(fill='x', pady=(0, 10))
-        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
     except Exception as e:
