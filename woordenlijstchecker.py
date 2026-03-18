@@ -608,7 +608,10 @@ def check_prisma_alternatief(word):
 
         if type_a:
             # Type A: unitname = witte spelling, lref = groene spelling
-            alt_word = html.unescape(re.sub(r'<[^>]*>', '', unitname_html).strip())
+            # Verwijder eerst het volledige <span class="la">alternatief</span> element
+            # (inclusief tekst) vóór de overige tags worden gestript.
+            cleaned_unitname = re.sub(r'<span class="la">alternatief</span>', '', unitname_html)
+            alt_word = html.unescape(re.sub(r'<[^>]*>', '', cleaned_unitname).strip())
             officiele_spelling = html.unescape(lref_match.group(1)) if lref_match else None
         else:
             # Type B: lref = witte spelling, unitname = groene spelling
