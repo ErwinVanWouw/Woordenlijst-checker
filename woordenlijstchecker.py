@@ -648,9 +648,9 @@ def _get_readme_path():
 
 
 def _get_over_path():
-    """Retourneert het pad naar over.txt (werkt zowel als .py als .exe)."""
+    """Retourneert het pad naar over.md (werkt zowel als .py als .exe)."""
     base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, 'over.txt')
+    return os.path.join(base, 'over.md')
 
 
 def _render_inline(text_widget, line, link_counter):
@@ -741,7 +741,7 @@ def show_help_popup():
 
 
 def show_over_popup():
-    """Toon een eenvoudig 'Over'-venster op basis van over.txt."""
+    """Toon een 'Over'-venster op basis van over.md met ondersteuning voor klikbare links."""
     if threading.current_thread() is not threading.main_thread():
         done = threading.Event()
         def _dispatch():
@@ -752,26 +752,48 @@ def show_over_popup():
         return
     try:
         popup = tk.Toplevel(_popup_root)
-        popup.title(f"Over – Woordenlijst-checker")
-        popup.resizable(False, False)
+        popup.title("Over – Woordenlijst-checker")
+        popup.resizable(True, True)
         popup.attributes('-topmost', True)
         _set_icon(popup)
-        popup_width, popup_height = 380, 220
+        popup_width, popup_height = 400, 240
         x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
+        frame = tk.Frame(popup)
+        frame.pack(fill='both', expand=True, padx=10, pady=(10, 5))
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side='right', fill='y')
+        text = tk.Text(
+            frame, wrap='word', yscrollcommand=scrollbar.set,
+            font=("Arial", 10), padx=10, pady=5,
+            cursor='arrow', state='normal', relief='flat', borderwidth=0
+        )
+        text.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=text.yview)
+
+        text.tag_configure('h1', font=("Arial", 13, "bold"), spacing1=6, spacing3=4)
+        text.tag_configure('normal', font=("Arial", 10))
+
         over_path = _get_over_path()
         if os.path.exists(over_path):
             with open(over_path, 'r', encoding='utf-8') as f:
-                tekst = f.read()
+                lines = f.readlines()
+            link_counter = [0]
+            for line in lines:
+                stripped = line.rstrip('\n').rstrip()
+                if stripped.startswith('# '):
+                    text.insert('end', stripped[2:] + '\n', 'h1')
+                elif stripped == '':
+                    text.insert('end', '\n', 'normal')
+                else:
+                    _render_inline(text, stripped + '\n', link_counter)
         else:
-            tekst = f"Woordenlijst-checker v{VERSION}\n\nover.txt niet gevonden."
+            text.insert('end', f"Woordenlijst-checker v{VERSION}\n\nover.md niet gevonden.", 'normal')
 
-        label = tk.Label(popup, text=tekst, justify='left', font=("Arial", 10),
-                         padx=20, pady=15, wraplength=340)
-        label.pack(fill='both', expand=True)
-        tk.Button(popup, text="Sluiten", command=popup.destroy, width=10).pack(pady=(0, 12))
+        text.config(state='disabled')
+        tk.Button(popup, text="Sluiten", command=popup.destroy, width=10).pack(pady=(0, 10))
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
     except Exception as e:

@@ -20,7 +20,7 @@ Woordenlijst-checker/
 ├── woordenlijstchecker.py   # Entire application — ~1347 lines, single file
 ├── README.md                # End-user documentation
 ├── LICENSE                  # GNU GPLv3
-├── over.txt                 # App info shown in the "Over" popup
+├── over.md                  # App info shown in the "Over" popup (supports markdown links)
 ├── version.txt              # Current version number (used for update checks)
 └── config.ini               # Auto-generated at runtime (NOT in repo)
 ```
@@ -55,7 +55,7 @@ The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new
 
 ### System Tray
 The application runs as a system tray icon (via `pystray`) with the following menu items:
-- **Over** — opens the "Over" popup (reads `over.txt`)
+- **Over** — opens the "Over" popup (reads `over.md`)
 - **Controleer op updates** — fetches `version.txt` from GitHub and compares with `VERSION`
 - **Help** — opens the help popup (reads `README.md`)
 - **Instellingen...** — opens the settings/config popup
@@ -92,7 +92,7 @@ The application runs as a system tray icon (via `pystray`) with the following me
 |---|---|
 | `show_success_popup(word, article, word_info, gender, gender_info_list)` | Green checkmark popup, auto-closes after 3 seconds; supports homonyms, plurals, ambiguous words |
 | `show_failure_popup(word, error_message, alternatief_info)` | Error dialog with clickable suggestion links, optional "witte spelling" result from Prisma, and Yes/No buttons to open woordenlijst.org |
-| `show_over_popup()` | "Over" dialog — reads and displays `over.txt` |
+| `show_over_popup()` | "Over" dialog — reads and displays `over.md` with inline link rendering |
 | `show_help_popup()` | Help dialog — reads and displays `README.md` with inline link rendering |
 | `show_config_popup()` | Settings dialog — lets user change hotkey and reset popup position |
 | `show_invoerfilter_popup(word, reden)` | Warning dialog shown when input is filtered (e.g. too short, non-word) |
@@ -102,7 +102,7 @@ The application runs as a system tray icon (via `pystray`) with the following me
 | Function | Purpose |
 |---|---|
 | `_get_readme_path()` | Returns path to `README.md` (works for `.py` and `.exe`) |
-| `_get_over_path()` | Returns path to `over.txt` (works for `.py` and `.exe`) |
+| `_get_over_path()` | Returns path to `over.md` (works for `.py` and `.exe`) |
 | `_set_icon(window)` | Sets the app icon on a tkinter window |
 | `_render_inline(text_widget, line, link_counter)` | Renders markdown inline links in a `Text` widget |
 
