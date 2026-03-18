@@ -729,7 +729,7 @@ def show_help_popup():
 
         text.config(state='disabled')
         close_frame = tk.Frame(popup)
-        close_frame.pack(fill='x', pady=(0, 10))
+        close_frame.pack(fill='x', pady=(10, 10))
         tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
@@ -759,7 +759,7 @@ def show_over_popup():
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
         btn_frame = tk.Frame(popup)
-        btn_frame.pack(side='bottom', fill='x', pady=(0, 10))
+        btn_frame.pack(side='bottom', fill='x', pady=(10, 10))
         tk.Button(btn_frame, text="Controleer op updates", command=lambda: threading.Thread(target=controleer_op_updates).start()).pack(side='left', padx=15)
         tk.Button(btn_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
 
