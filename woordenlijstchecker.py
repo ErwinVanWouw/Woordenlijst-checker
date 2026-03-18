@@ -728,7 +728,9 @@ def show_help_popup():
             text.insert('end', 'README.md niet gevonden.', 'normal')
 
         text.config(state='disabled')
-        tk.Button(popup, text="Sluiten", command=popup.destroy, width=10).pack(pady=(0, 10))
+        close_frame = tk.Frame(popup)
+        close_frame.pack(fill='x', pady=(0, 10))
+        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
     except Exception as e:
@@ -757,9 +759,9 @@ def show_over_popup():
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
         btn_frame = tk.Frame(popup)
-        btn_frame.pack(side='bottom', pady=(0, 10))
-        tk.Button(btn_frame, text="Controleer op updates", command=lambda: threading.Thread(target=controleer_op_updates).start()).pack(side='left', padx=5)
-        tk.Button(btn_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='left', padx=5)
+        btn_frame.pack(side='bottom', fill='x', pady=(0, 10))
+        tk.Button(btn_frame, text="Controleer op updates", command=lambda: threading.Thread(target=controleer_op_updates).start()).pack(side='left', padx=15)
+        tk.Button(btn_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
 
         text = tk.Text(
             popup, wrap='word',
