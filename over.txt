@@ -1,11 +1,10 @@
 Woordenlijst-checker v1.5
 
-Een hulpmiddel voor redacteuren, proeflezers en vertalers om
-snel Nederlandse spelling te controleren op basis van de
-officiële woordenlijst (woordenlijst.org).
+Met deze tool kunt u snel controleren of een woord is opgenomen
+in de officiële (groene) en onofficiële (witte) woordenlijst
+zonder de Windows-app waarin u werkt te verlaten.
 
-Druk op de sneltoets (standaard: F9) terwijl een woord
-geselecteerd is om het direct te controleren.
+Selecteer een woord en druk op de sneltoets (standaard: F9).
 
 Auteur:    Black Kite (blackkite.nl)
 Licentie:  GNU General Public License v3
