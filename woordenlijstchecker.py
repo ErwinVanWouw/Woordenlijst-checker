@@ -753,25 +753,20 @@ def show_over_popup():
     try:
         popup = tk.Toplevel(_popup_root)
         popup.title("Over – Woordenlijst-checker")
-        popup.resizable(True, True)
+        popup.resizable(False, False)
         popup.attributes('-topmost', True)
         _set_icon(popup)
-        popup_width, popup_height = 400, 240
+        popup_width, popup_height = 400, 270
         x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
-        frame = tk.Frame(popup)
-        frame.pack(fill='both', expand=True, padx=10, pady=(10, 5))
-        scrollbar = tk.Scrollbar(frame)
-        scrollbar.pack(side='right', fill='y')
         text = tk.Text(
-            frame, wrap='word', yscrollcommand=scrollbar.set,
-            font=("Arial", 10), padx=10, pady=5,
+            popup, wrap='word',
+            font=("Arial", 10), padx=15, pady=10,
             cursor='arrow', state='normal', relief='flat', borderwidth=0
         )
-        text.pack(side='left', fill='both', expand=True)
-        scrollbar.config(command=text.yview)
+        text.pack(fill='both', expand=True)
 
         text.tag_configure('h1', font=("Arial", 13, "bold"), spacing1=6, spacing3=4)
         text.tag_configure('normal', font=("Arial", 10))
