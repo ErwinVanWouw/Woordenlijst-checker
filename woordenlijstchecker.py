@@ -851,6 +851,8 @@ def show_config_popup():
         x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+        popup.columnconfigure(0, weight=1)
+        popup.columnconfigure(1, weight=1)
 
         tk.Label(popup, text="Sneltoets:", font=("Arial", 10)).grid(
             row=0, column=0, padx=15, pady=(20, 5), sticky='e')
@@ -916,8 +918,8 @@ def show_config_popup():
         tk.Button(positie_frame, text="Reset", command=reset_positie, width=8).pack(side='left')
 
         close_frame = tk.Frame(popup)
-        close_frame.grid(row=4, column=0, columnspan=2, pady=(15, 10), sticky='e')
-        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(padx=15)
+        close_frame.grid(row=4, column=0, columnspan=2, pady=(15, 10), sticky='ew')
+        tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
 
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
