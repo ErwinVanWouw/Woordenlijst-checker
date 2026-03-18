@@ -37,11 +37,11 @@ Woordenlijst-checker toont ook het woordgeslacht van het opgevraagde zelfstandig
 Als het woord niet in de officiële Woordenlijst van de Nederlandse Taal staat, verschijnt er een dialoogvenster met mogelijke suggesties. Als er een alternatieve 'Witte spelling' beschikbaar is op Onzetaal.nl, wordt deze ook weergegeven. Het gekopieerde woord blijft op het Windows-klembord staan.
 
 ## Aanpassen sneltoets of pop-uppositie 
-Bij de eerste keer opstarten creëert Woordenlijst-checker een configuratiebestand met F9 als sneltoets. Als deze sneltoets conflicteert met andere software op uw systeem, kunt u die sneltoets aanpassen. Rechtsklik op het systeemvakpictogram van Woordenlijst-checker, open 'Instellingen', vervang F9 door de gewenste sneltoets en klik op 'Opslaan'.
+Bij de eerste keer opstarten creëert Woordenlijst-checker een configuratiebestand met F9 als sneltoets. Als deze sneltoets conflicteert met andere software op uw systeem, kunt u die sneltoets aanpassen. Rechtsklik op het systeemvakpictogram van Woordenlijst-checker, open 'Instellingen', vervang F9 door de gewenste sneltoets en klik op 'Wijzig'.
 
 U kunt aanpassen waar de pop-ups op uw scherm verschijnen en op welke monitor (indien van toepassing). Sleep het pop-upvenster naar de gewenste locatie op een scherm. De tool onthoudt de locatie. De volgende keer dat u een woord zoekt, opent het pop-upvenster op deze plek.
 
-Valt het pop-upvenster buiten het zichtbare gebied van uw scherm? Klik op het systeemvakpictogram van Woordenlijst-checker, ga naar Instellingen en klik op 'Positie resetten'.
+Valt het pop-upvenster buiten het zichtbare gebied van uw scherm? Klik op het systeemvakpictogram van Woordenlijst-checker, ga naar Instellingen en klik op 'Reset positie'.
 
 Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictogrammen automatisch in de overloopbalk (het pijltje naast de klok). U kunt het pictogram ook zichtbaar maken via **Persoonlijke instellingen > Taakbalk > Andere systeemvakpictogrammen**.
 
@@ -94,9 +94,9 @@ Woordenlijst-checker also shows the grammatical gender of nouns, along with the 
 If the word is absent from the official Dutch word list, a pop-up window will notify you. This dialog window lets you either close it, select an alternative word (if any), or access the Woordenlijst.org website. If an alternative ‘Witte spelling’ is available on Onzetaal.nl, it will be displayed as well. The word you searched for will remain on your Windows clipboard.
 
 ## Adjust Shortcut and Pop-up Location
-When you first launch Woordenlijst-checker, a configuration file is created with F9 set as the default shortcut key. If this default shortcut key conflicts with other software on your system, you can modify it. Click the Woordenlijst-checker system tray icon, open 'Instellingen', replace F9 with your preferred shortcut key (combination), and click 'Opslaan'.
+When you first launch Woordenlijst-checker, a configuration file is created with F9 set as the default shortcut key. If this default shortcut key conflicts with other software on your system, you can modify it. Click the Woordenlijst-checker system tray icon, open 'Instellingen', replace F9 with your preferred shortcut key (combination), and click 'Wijzig'.
 
-Would you like the pop-up window to appear in a different location on your screen or on another monitor? Drag and drop the pop-up window anywhere on your primary or secondary monitor, and the tool will remember its location. The next time you trigger the tool by pressing F9 the pop-up window will appear here. Has the pop-up moved outside the visible area of your screen? Click the Woordenlijst-checker system tray icon, go to Instellingen and click 'Positie resetten'.
+Would you like the pop-up window to appear in a different location on your screen or on another monitor? Drag and drop the pop-up window anywhere on your primary or secondary monitor, and the tool will remember its location. The next time you trigger the tool by pressing F9 the pop-up window will appear here. Has the pop-up moved outside the visible area of your screen? Click the Woordenlijst-checker system tray icon, go to Instellingen and click 'Reset positie'.
 
 Can't see a system tray icon? Windows 10/11 automatically hides newly added tray icons in the overflow (the small ^ arrow next to the clock). Alternatively, you can make it visible via **Personalization > Taskbar > Other system tray icons**.
 
