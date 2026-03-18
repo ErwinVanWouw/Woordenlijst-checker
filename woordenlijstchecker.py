@@ -812,13 +812,29 @@ def controleer_op_updates():
         else:
             bericht = f"Er is een nieuwe versie beschikbaar: {nieuwste}\n(je hebt versie {VERSION})"
             titel = "Update beschikbaar"
-        _popup_root.after(0, lambda: messagebox.showinfo(titel, bericht))
     except Exception as e:
         print(f"[Fout] Updatecontrole mislukt: {e}")
-        _popup_root.after(0, lambda: messagebox.showwarning(
-            "Updatecontrole mislukt",
-            "Kon de updateserver niet bereiken.\nControleer je internetverbinding."
-        ))
+        titel = "Updatecontrole mislukt"
+        bericht = "Kon de updateserver niet bereiken.\nControleer je internetverbinding."
+
+    def _toon():
+        popup = tk.Toplevel(_popup_root)
+        popup.title(titel)
+        popup.resizable(False, False)
+        popup.attributes('-topmost', True)
+        _set_icon(popup)
+        popup_width, popup_height = 340, 120
+        x = int(_popup_root.winfo_screenwidth() / 2 - popup_width / 2)
+        y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
+        popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+        tk.Label(popup, text=bericht, font=("Arial", 10), justify='center',
+                 padx=20, pady=15, wraplength=300).pack(fill='both', expand=True)
+        tk.Button(popup, text="OK", command=popup.destroy, width=10).pack(pady=(0, 10))
+        popup.bind('<Escape>', lambda e: popup.destroy())
+        popup.bind('<Return>', lambda e: popup.destroy())
+        _popup_root.wait_window(popup)
+
+    _popup_root.after(0, _toon)
 
 
 def show_config_popup():
