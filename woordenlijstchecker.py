@@ -729,7 +729,7 @@ def show_help_popup():
 
         text.config(state='disabled')
         close_frame = tk.Frame(popup)
-        close_frame.pack(fill='x', pady=(10, 10))
+        close_frame.pack(fill='x', pady=(0, 10))
         tk.Button(close_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='right', padx=15)
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
