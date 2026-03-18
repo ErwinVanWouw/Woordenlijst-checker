@@ -42,8 +42,9 @@ main()
        └─ threading.Thread(target=perform_check).start()
              ├─ check_rate_limit()           ← max 30 requests/minute
              ├─ clipboard read (Ctrl+C / Ctrl+Ins fallback)
+             ├─ check_prisma_alternatief()   ← parallel thread (spelling.prisma.nl)
              ├─ check_word_online(word)       ← API call to woordenlijst.org
-             └─ show_success_popup() OR show_failure_popup()
+             └─ show_success_popup() OR show_failure_popup(alternatief_info=...)
 ```
 
 The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new thread for non-blocking UI. The tray icon runs in its own thread and dispatches menu actions back to the tkinter thread via `_popup_root.after()`.
@@ -78,6 +79,7 @@ The application runs as a system tray icon (via `pystray`) with the following me
 |---|---|
 | `check_word_online(word)` | Main business logic — queries the API, parses XML, returns 7-tuple |
 | `get_spelling_suggestions(word)` | Calls the spellcheck endpoint; returns up to 3 suggestions as a string |
+| `check_prisma_alternatief(word)` | Queries `spelling.prisma.nl` for alternative (white-list) spellings; returns `(alt_word, officiele_spelling, url)` or `None` |
 
 **Return signature of `check_word_online`:**
 ```python
@@ -89,7 +91,7 @@ The application runs as a system tray icon (via `pystray`) with the following me
 | Function | Purpose |
 |---|---|
 | `show_success_popup(word, article, word_info, gender, gender_info_list)` | Green checkmark popup, auto-closes after 3 seconds; supports homonyms, plurals, ambiguous words |
-| `show_failure_popup(word, error_message)` | Error dialog with clickable suggestion links and Yes/No buttons to open woordenlijst.org |
+| `show_failure_popup(word, error_message, alternatief_info)` | Error dialog with clickable suggestion links, optional "witte spelling" result from Prisma, and Yes/No buttons to open woordenlijst.org |
 | `show_over_popup()` | "Over" dialog — reads and displays `over.txt` |
 | `show_help_popup()` | Help dialog — reads and displays `README.md` with inline link rendering |
 | `show_config_popup()` | Settings dialog — lets user change hotkey and reset popup position |
@@ -132,11 +134,27 @@ Response: XML with <corrections> (pipe-separated) or <best_guess>
 ```
 
 **Important:** The API returns XML but the code parses it with regex (not an XML parser library). Responses are parsed for:
+
 - `<found_lemmata>` — presence indicates word exists in database
 - `<wordform>` / `<lemma>` — matched forms
 - `<paradigm>` blocks — inflection data (singular/plural, gender)
 - `lemma_part_of_speech` attributes — extract gender (`m`, `f`, `n`, `c`)
 - `<label>` — word type tags (`hoofdwerkwoord`, `meervoud`, `enkelvoud`, `zelfstandig naamwoord`)
+
+### Prisma Alternative Spelling (spelling.prisma.nl)
+
+When a word is **not found** in woordenlijst.org, the app simultaneously queries `spelling.prisma.nl` (the Prisma/onzetaal dictionary) to check whether the word exists as an alternative ("witte") spelling. This runs in a parallel thread alongside the main check.
+
+```
+GET https://spelling.prisma.nl/?id=-827&unitsearch=<word>
+Response: HTML page parsed with regex for .unitname and .lref elements
+```
+
+Two response patterns are handled:
+- **Type A**: the `unitname` div contains `<span class="la">alternatief</span>` → `unitname` = witte spelling, `lref` = groene (official) spelling
+- **Type B**: the `alternatief` label appears elsewhere on the page → `lref` = witte spelling, `unitname` = groene spelling
+
+If a result is found, `show_failure_popup` displays it as a clickable link labelled **"Alternatieve witte spelling:"**. The check times out after 6 seconds and never blocks the popup.
 
 ---
 
