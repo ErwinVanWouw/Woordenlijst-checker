@@ -824,10 +824,10 @@ def controleer_op_updates():
         response.raise_for_status()
         nieuwste = response.text.strip()
         if nieuwste == VERSION:
-            bericht = f"Je gebruikt de nieuwste versie ({VERSION})."
+            bericht = f"U gebruikt de nieuwste versie ({VERSION})."
             titel = "Geen updates beschikbaar"
         else:
-            bericht = f"Er is een nieuwe versie beschikbaar: {nieuwste}\n(je hebt versie {VERSION})"
+            bericht = f"Er is een nieuwe versie beschikbaar: {nieuwste}\n(u heeft versie {VERSION})"
             titel = "Update beschikbaar"
         def _toon():
             ouder = tk.Toplevel(_popup_root)
@@ -844,7 +844,7 @@ def controleer_op_updates():
             ouder.attributes('-topmost', True)
             messagebox.showwarning(
                 "Updatecontrole mislukt",
-                "Kon de updateserver niet bereiken.\nControleer je internetverbinding.",
+                "Kon de updateserver niet bereiken.\nControleer uw internetverbinding.",
                 parent=ouder
             )
             ouder.destroy()
