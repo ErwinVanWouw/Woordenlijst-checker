@@ -756,6 +756,11 @@ def show_over_popup():
         y = int(_popup_root.winfo_screenheight() / 2 - popup_height / 2)
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
+        btn_frame = tk.Frame(popup)
+        btn_frame.pack(side='bottom', pady=(0, 10))
+        tk.Button(btn_frame, text="Controleer op updates", command=lambda: threading.Thread(target=controleer_op_updates).start()).pack(side='left', padx=5)
+        tk.Button(btn_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='left', padx=5)
+
         text = tk.Text(
             popup, wrap='word',
             font=("Arial", 10), padx=15, pady=10,
@@ -783,10 +788,6 @@ def show_over_popup():
             text.insert('end', f"Woordenlijst-checker v{VERSION}\n\nover.md niet gevonden.", 'normal')
 
         text.config(state='disabled')
-        btn_frame = tk.Frame(popup)
-        btn_frame.pack(pady=(0, 10))
-        tk.Button(btn_frame, text="Controleer op updates", command=lambda: threading.Thread(target=controleer_op_updates).start()).pack(side='left', padx=5)
-        tk.Button(btn_frame, text="Sluiten", command=popup.destroy, width=10).pack(side='left', padx=5)
         popup.bind('<Escape>', lambda e: popup.destroy())
         _popup_root.wait_window(popup)
     except Exception as e:
