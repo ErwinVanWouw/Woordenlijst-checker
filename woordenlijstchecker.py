@@ -949,7 +949,7 @@ def show_config_popup():
                 return
             old_hotkey = HOTKEY  # Bewaar huidige waarde voor eventuele herstelactie
             try:
-                keyboard.remove_hotkey(old_hotkey)
+                keyboard.unhook_all()  # Ruimt ook een eventueel defecte hook op
             except Exception:
                 pass
             try:
@@ -968,6 +968,7 @@ def show_config_popup():
                 status_label.config(text="Ongeldige sneltoets.", fg='red')
                 print(f"[Config] Ongeldige sneltoets '{new_hotkey}': {e}")
                 try:
+                    keyboard.unhook_all()
                     keyboard.add_hotkey(old_hotkey, lambda: threading.Thread(target=perform_check).start())
                 except Exception:
                     pass
@@ -1543,6 +1544,25 @@ def main():
     _start_tray()
 
     keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
+
+    # Periodieke herregistratie van de sneltoets (elke 5 minuten) als bescherming tegen
+    # het stilzwijgend intrekken van de WH_KEYBOARD_LL hook door Windows na slaapstand,
+    # schermvergrendeling of hervatting.
+    _HERREGISTREER_INTERVAL_MS = 5 * 60 * 1000  # 5 minuten
+
+    def _herregistreer_sneltoets():
+        try:
+            keyboard.unhook_all()
+        except Exception:
+            pass
+        try:
+            keyboard.add_hotkey(HOTKEY, lambda: threading.Thread(target=perform_check).start())
+            print("[Info] Sneltoets herregistreerd (periodieke refresh)")
+        except Exception as e:
+            print(f"[Waarschuwing] Periodieke herregistratie mislukt: {e}")
+        _popup_root.after(_HERREGISTREER_INTERVAL_MS, _herregistreer_sneltoets)
+
+    _popup_root.after(_HERREGISTREER_INTERVAL_MS, _herregistreer_sneltoets)
 
     _popup_root.mainloop()  # Tk-event loop draait in hoofdthread; after()-callbacks verwerken popups
 
