@@ -351,7 +351,14 @@ def _extract_woordsoort_entries(xml, word):
             display = label
 
         # Vervang volledige naam door afkorting (indien beschikbaar)
-        display = POS_AFKORTINGEN.get(display, display)
+        # Exacte match, anders prefix-match (bijv. 'persoonlijk voornaamwoord (1e persoon enkelvoud)')
+        if display in POS_AFKORTINGEN:
+            display = POS_AFKORTINGEN[display]
+        else:
+            for key, short in POS_AFKORTINGEN.items():
+                if display.startswith(key):
+                    display = short + display[len(key):]
+                    break
 
         # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
         is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
