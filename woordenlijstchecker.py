@@ -28,6 +28,23 @@ VERSION = "1.5"
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
 
+# Woordsoort-afkortingen voor popup-weergave
+POS_AFKORTINGEN = {
+    'hoofdwerkwoord': 'ww.',
+    'zelfstandig naamwoord': 'zn.',
+    'bijvoeglijk naamwoord': 'bn.',
+    'bijwoord': 'bw.',
+    'nevenschikkend voegwoord': 'nevenschikkend vw.',
+    'onderschikkend voegwoord': 'onderschikkend vw.',
+    'voegwoord': 'vw.',
+    'voorzetsel': 'vz.',
+    'voornaamwoord': 'vnw.',
+    'tussenwerpsel': 'tw.',
+    'lidwoord': 'lidw.',
+    'telwoord': 'telw.',
+    'uitdrukking': 'uitdr.',
+}
+
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
 
@@ -376,18 +393,44 @@ def check_word_online(word):
                             if not duplicate:
                                 lemma_entries.append(entry)
 
+                # Zoek niet-naamwoord entries (werkwoorden, voegwoorden, etc.)
+                extra_entries = []
+                for block in found_lemmata_blocks:
+                    # Woord moet als lemma voorkomen in dit blok (exacte match)
+                    if not re.search(r'<lemma>' + re.escape(word_normalized) + r'</lemma>', block):
+                        continue
+                    # Sla blokken over die al als naamwoord zijn verwerkt (bevatten gender=)
+                    if re.search(r'gender=', block):
+                        continue
+                    # Zoek woordsoort-label in dit blok
+                    labels_in_block = re.findall(r'<label>(.*?)</label>', block)
+                    pos_label = next((l for l in labels_in_block if l in POS_AFKORTINGEN), None)
+                    if pos_label:
+                        abbrev = POS_AFKORTINGEN[pos_label]
+                        lemma_m = re.search(r'<lemma>(.*?)</lemma>', block)
+                        entry_lemma = lemma_m.group(1) if lemma_m else word_normalized
+                        entry = {'lemma': entry_lemma, 'pos': abbrev}
+                        if not any(e.get('pos') == abbrev for e in extra_entries):
+                            extra_entries.append(entry)
+
+                # Combineer naamwoord- en niet-naamwoord-entries (naamwoorden eerst)
+                all_entries = lemma_entries + extra_entries
+
                 # Verwerk de resultaten
-                if lemma_entries:
-                    # Als er maar één unieke combinatie is
-                    if len(lemma_entries) == 1:
-                        article = lemma_entries[0]['article']
-                        gender = lemma_entries[0]['gender']
-                        gender_info_list = None  # Geen lijst nodig voor enkelvoudige entry
+                if all_entries:
+                    if len(all_entries) == 1:
+                        if lemma_entries:
+                            article = lemma_entries[0]['article']
+                            gender = lemma_entries[0]['gender']
+                        else:
+                            article = None
+                            gender = None
+                        gender_info_list = None
                     else:
-                        # Meerdere combinaties (homoniemen)
-                        gender_info_list = lemma_entries
-                        article = "/".join(sorted({e['article'] for e in lemma_entries}))
-                        gender = None  # Geen enkele gender, want we hebben een lijst
+                        # Meerdere entries (homoniemen en/of meerdere woordsoorten)
+                        gender_info_list = all_entries
+                        article = "/".join(sorted({e['article'] for e in lemma_entries})) if lemma_entries else None
+                        gender = None
                 else:
                     article = None
                     gender = None
@@ -971,10 +1014,16 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         # Bepaal pop-upgrootte op basis van inhoud
         if gender_info_list and len(gender_info_list) > 1:
             popup_height = 150 + (len(gender_info_list) - 1) * 25 + 10
-            max_line_len = max(
-                len(f"'{info.get('lemma', word)}' {info['article']} ({info['gender']})")
-                for info in gender_info_list
-            )
+
+            def _entry_display_len(info):
+                lemma = info.get('lemma', word)
+                if 'article' in info and 'gender' in info:
+                    return len(f"'{lemma}'  {info['article']} ({info['gender']})")
+                elif 'pos' in info:
+                    return len(f"'{lemma}'  {info['pos']}")
+                return len(f"'{lemma}'")
+
+            max_line_len = max(_entry_display_len(info) for info in gender_info_list)
         elif word_info and word_info.get('is_ambiguous'):
             popup_height = 190
             first_line = f"'{word}' {article} ({gender})" if gender else f"'{word}' ({article})"
@@ -1029,8 +1078,14 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 word_lbl.pack(side='left')
                 if i == 0:
                     word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
-                tk.Label(line_frame, text=f" {info['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
-                tk.Label(line_frame, text=f" ({info['gender']})", font=("Arial", 12), bg='white').pack(side='left')
+
+                if 'article' in info and 'gender' in info:
+                    # Naamwoord: toon lidwoord en geslacht
+                    tk.Label(line_frame, text=f"  {info['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+                    tk.Label(line_frame, text=f" ({info['gender']})", font=("Arial", 12), bg='white').pack(side='left')
+                elif 'pos' in info:
+                    # Niet-naamwoord: toon woordsoort-afkorting
+                    tk.Label(line_frame, text=f"  {info['pos']}", font=("Arial", 12), bg='white').pack(side='left')
 
             # "staat in Woordenlijst.org" regel
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
