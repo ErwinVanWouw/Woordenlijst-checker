@@ -306,71 +306,69 @@ def _extract_woordsoort_entries(xml, word):
         # Strip paradigm-blokken zodat labels daarin niet meekomen
         clean_block = re.sub(r'<paradigm>.*?</paradigm>', '', block, flags=re.DOTALL)
 
-        # Alle <label>-elementen in het blok zijn woordsoort-aanduidingen op lemma-niveau
+        # Eerste <label> in het blok is de woordsoort op lemma-niveau.
+        # Meerdere labels in hetzelfde blok zijn genus-varianten van hetzelfde lemma
+        # (bijv. zn(m) én zn(o)) — we nemen alleen de eerste, anders dubbele entries.
         labels_in_block = re.findall(r'<label>(.*?)</label>', clean_block)
-        if not labels_in_block:
+        if not labels_in_block or not labels_in_block[0]:
             continue
+        label = labels_in_block[0]
 
-        # Lemma is hetzelfde voor alle entries binnen dit blok
+        # Lemma voor dit blok
         lemma_match = re.search(r'<lemma>(.*?)</lemma>', clean_block)
         entry_lemma = lemma_match.group(1) if lemma_match else word
 
-        # Verwerk elk label als aparte woordsoort-entry
-        for label in labels_in_block:
-            if not label:
-                continue
+        # Bepaal display en artikel/genus via WOORDSOORT_PREFIXES
+        display = None
+        article = None
+        gender = None
 
-            # Bepaal display en artikel/genus via WOORDSOORT_PREFIXES
-            display = None
-            article = None
-            gender = None
-
-            matched = False
-            for prefix, mapping in WOORDSOORT_PREFIXES:
-                if label.startswith(prefix):
-                    matched = True
-                    if mapping is None:
-                        # Zelfstandig naamwoord: genus uit label parsen
-                        genus_match = re.search(r'\(([^)]+)\)', label)
-                        genus_raw = genus_match.group(1) if genus_match else ''
-                        genus_core = re.sub(r',.*', '', genus_raw).strip()  # 'm' uit 'm, afkorting'
-                        if genus_core == 'o':
-                            article = 'het'
-                        elif '/' in genus_core and 'o' in genus_core:
-                            article = 'de/het'
-                        else:
-                            article = 'de'
-                        gender = genus_core if genus_core else None
-                        display = "zelfstandig naamwoord"
-                    elif mapping == 'RAW':
-                        display = label
+        matched = False
+        for prefix, mapping in WOORDSOORT_PREFIXES:
+            if label.startswith(prefix):
+                matched = True
+                if mapping is None:
+                    # Zelfstandig naamwoord: genus uit label parsen
+                    genus_match = re.search(r'\(([^)]+)\)', label)
+                    genus_raw = genus_match.group(1) if genus_match else ''
+                    genus_core = re.sub(r',.*', '', genus_raw).strip()  # 'm' uit 'm, afkorting'
+                    if genus_core == 'o':
+                        article = 'het'
+                    elif '/' in genus_core and 'o' in genus_core:
+                        article = 'de/het'
                     else:
-                        display = mapping
-                    break
+                        article = 'de'
+                    gender = genus_core if genus_core else None
+                    display = "zelfstandig naamwoord"
+                elif mapping == 'RAW':
+                    display = label
+                else:
+                    display = mapping
+                break
 
-            if not matched:
-                # Fallback: toon raw label
-                display = label
+        if not matched:
+            # Fallback: toon raw label
+            display = label
 
-            # Vervang volledige naam door afkorting (indien beschikbaar)
-            display = POS_AFKORTINGEN.get(display, display)
+        # Vervang volledige naam door afkorting (indien beschikbaar)
+        display = POS_AFKORTINGEN.get(display, display)
 
-            # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
-            is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
+        # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
+        is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
 
-            # Dedupliceer — meervoud-entries samenvoegen tot één regel
-            dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}"
-            if dedup_key in seen_displays:
-                continue
-            seen_displays.add(dedup_key)
+        # Dedupliceer — meervoud-entries samenvoegen tot één regel
+        dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}"
+        if dedup_key in seen_displays:
+            continue
+        seen_displays.add(dedup_key)
 
-            entries.append({
-                'display': display,
-                'article': article,
-                'gender': gender,
-                'lemma': entry_lemma,
-                'is_meervoud': is_meervoud,
-            })
+        entries.append({
+            'display': display,
+            'article': article,
+            'gender': gender,
+            'lemma': entry_lemma,
+            'is_meervoud': is_meervoud,
+        })
 
     return entries
 
