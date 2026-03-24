@@ -21,6 +21,7 @@ WOORDSOORT_PREFIXES = [
     ('bijvoeglijk naamwoord',            'bijvoeglijk naamwoord'),
     ('zelfstandignaamwoordgroep',         'zelfstandignaamwoordgroep'),
     ('zelfstandig naamwoord',            None),
+    ('naam',                             'naam'),
     ('hoofdwerkwoord',                   'werkwoord'),
     ('bijwoord',                         'bijwoord'),
     ('voorzetsel / achterzetsel',        'voorzetsel / achterzetsel'),

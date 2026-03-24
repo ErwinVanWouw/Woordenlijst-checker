@@ -36,6 +36,7 @@ WOORDSOORT_PREFIXES = [
     ('bijvoeglijk naamwoord',            'bijvoeglijk naamwoord'),   # defensief, nooit gezien
     ('zelfstandignaamwoordgroep',         'zelfstandignaamwoordgroep'),
     ('zelfstandig naamwoord',            None),
+    ('naam',                             'naam'),
     ('hoofdwerkwoord',                   'werkwoord'),
     ('bijwoord',                         'bijwoord'),                # vangt ook '(afkorting)'
     ('voorzetsel / achterzetsel',        'voorzetsel / achterzetsel'),
@@ -371,8 +372,10 @@ def _extract_woordsoort_entries(xml, word):
         # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
         is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
 
-        # Dedupliceer — meervoud-entries samenvoegen tot één regel
-        dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}"
+        # Dedupliceer — meervoud-entries samenvoegen tot één regel;
+        # lemma meenemen zodat 'weegschaal' en 'Weegschaal' als aparte entries gelden,
+        # maar twee identieke 'Weegschaal'-blokken met zelfde genus wél dedupliceren.
+        dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}|{entry_lemma}"
         if dedup_key in seen_displays:
             continue
         seen_displays.add(dedup_key)
@@ -1017,17 +1020,23 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         # Bepaal pop-upgrootte op basis van inhoud
         entries = word_info.get('entries', []) if word_info else []
 
+        def _entry_display_word(e):
+            """Geeft het te tonen woord terug: lemma als dat alleen in beginkapitaal afwijkt."""
+            lm = e.get('lemma', word)
+            return lm if (lm and lm.lower() == word.lower()) else word
+
         def _entry_display_len(e):
+            dw = _entry_display_word(e)
             disp = e.get('display', '')
             if e.get('is_meervoud'):
-                return len(f"'{word}'  {disp} mv.")
+                return len(f"'{dw}'  {disp} mv.")
             elif e.get('article') and e.get('gender'):
-                return len(f"'{word}'  {e['article']} ({e['gender']})")
+                return len(f"'{dw}'  {e['article']} ({e['gender']})")
             elif e.get('article'):
-                return len(f"'{word}'  {e['article']}")
+                return len(f"'{dw}'  {e['article']}")
             elif disp:
-                return len(f"'{word}'  {disp}")
-            return len(f"'{word}'")
+                return len(f"'{dw}'  {disp}")
+            return len(f"'{dw}'")
 
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
@@ -1085,11 +1094,12 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 line_frame = tk.Frame(text_frame, bg='white')
                 line_frame.pack(anchor='w')
 
-                # Altijd het gezochte woord tonen, niet het lemma
-                word_lbl = tk.Label(line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+                # Toon lemma als het alleen in beginkapitaal afwijkt (bijv. 'Weegschaal')
+                dw = _entry_display_word(entry)
+                word_lbl = tk.Label(line_frame, text=f"'{dw}'", font=("Arial", 12), bg='white')
                 word_lbl.pack(side='left')
                 if i == 0:
-                    word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+                    word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(dw)}"))
 
                 disp = entry.get('display', '')
                 if entry.get('is_meervoud'):
