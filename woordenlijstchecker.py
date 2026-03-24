@@ -1007,9 +1007,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             if e.get('is_meervoud'):
                 return len(f"'{word}'  {disp} mv.")
             elif e.get('article') and e.get('gender'):
-                return len(f"'{word}'  {disp}  {e['article']} ({e['gender']})")
+                return len(f"'{word}'  {e['article']} ({e['gender']})")
             elif e.get('article'):
-                return len(f"'{word}'  {disp}  {e['article']}")
+                return len(f"'{word}'  {e['article']}")
             elif disp:
                 return len(f"'{word}'  {disp}")
             return len(f"'{word}'")
@@ -1019,9 +1019,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             max_line_len = max(_entry_display_len(e) for e in entries)
         elif article:
             popup_height = 160
-            disp0 = entries[0].get('display', 'znw.') if entries else 'znw.'
-            first_line = (f"'{word}'  {disp0}  {article} ({gender})" if gender
-                          else f"'{word}'  {disp0}  {article}")
+            first_line = (f"'{word}'  {article} ({gender})" if gender
+                          else f"'{word}'  {article}")
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
             popup_height = 160
@@ -1082,13 +1081,11 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                     # Meervoudsvorm van naamwoord
                     tk.Label(line_frame, text=f"  {disp} mv.", font=("Arial", 12), bg='white').pack(side='left')
                 elif entry.get('article') and entry.get('gender'):
-                    # Enkelvoudig naamwoord met geslacht
-                    tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
+                    # Enkelvoudig naamwoord met geslacht — 'znw.' weglaten, lidwoord+gender volstaat
                     tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
                     tk.Label(line_frame, text=f" ({entry['gender']})", font=("Arial", 12), bg='white').pack(side='left')
                 elif entry.get('article'):
                     # Naamwoord zonder geslacht
-                    tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
                     tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
                 elif disp:
                     # Werkwoord / bijwoord / voegwoord / etc.
@@ -1108,8 +1105,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
             word_lbl.pack(side='left')
             word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
-            disp0 = entries[0].get('display', 'znw.') if entries else 'znw.'
-            tk.Label(first_line_frame, text=f"  {disp0}", font=("Arial", 12), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f"  {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
