@@ -1376,7 +1376,10 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
 
         # Focus
         if show_entry:
-            dialog.after(100, lambda: entry_widget.focus_force())
+            def _focus_entry():
+                entry_widget.focus_force()
+                entry_widget.select_range(0, 'end')
+            dialog.after(100, _focus_entry)
         else:
             dialog.after(100, lambda: no_button.focus_force())
 
