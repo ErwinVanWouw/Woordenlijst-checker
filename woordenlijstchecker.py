@@ -355,14 +355,14 @@ def _extract_woordsoort_entries(xml, word):
             # Vervang volledige naam door afkorting (indien beschikbaar)
             display = POS_AFKORTINGEN.get(display, display)
 
-            # Dedupliceer — sleutel altijd 3-delig om overslaan van tweede genus te voorkomen
-            dedup_key = f"{display}|{article}|{gender}"
+            # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
+            is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
+
+            # Dedupliceer — meervoud-entries samenvoegen tot één regel
+            dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}"
             if dedup_key in seen_displays:
                 continue
             seen_displays.add(dedup_key)
-
-            # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
-            is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
 
             entries.append({
                 'display': display,
