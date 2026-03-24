@@ -360,6 +360,10 @@ def _extract_woordsoort_entries(xml, word):
                     display = short + display[len(key):]
                     break
 
+        # Strip persoonsvorm-subtype van voornaamwoorden (bijv. 'pers. vnw. (1e persoon enkelvoud)' → 'pers. vnw.')
+        if 'vnw.' in display:
+            display = re.sub(r'\s*\(.*\)$', '', display).strip()
+
         # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
         is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
 

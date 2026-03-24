@@ -116,6 +116,10 @@ def _extract_woordsoort_entries(xml, word):
                     display = short + display[len(key):]
                     break
 
+        # Strip persoonsvorm-subtype van voornaamwoorden
+        if 'vnw.' in display:
+            display = re.sub(r'\s*\(.*\)$', '', display).strip()
+
         is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
         dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}"
         if dedup_key in seen_displays:
