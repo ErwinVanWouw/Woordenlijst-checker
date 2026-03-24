@@ -47,6 +47,7 @@ WOORDSOORT_PREFIXES = [
     ('betrekkelijk voornaamwoord',       'RAW'),
     ('vragend voornaamwoord',            'RAW'),
     ('onbepaald voornaamwoord',          'RAW'),
+    ('wederkerend voornaamwoord',        'RAW'),
     ('hoofdtelwoord',                    'telwoord'),
     ('rangtelwoord',                     'telwoord'),                # defensief
     ('tussenwerpsel',                    'tussenwerpsel'),           # vangt subtype-suffix
@@ -71,6 +72,7 @@ POS_AFKORTINGEN = {
     'betrekkelijk voornaamwoord':         'betr. vnw.',
     'vragend voornaamwoord':              'vr. vnw.',
     'onbepaald voornaamwoord':            'onbep. vnw.',
+    'wederkerend voornaamwoord':          'wederkerend vnw.',
     'telwoord':                           'telw.',
     'tussenwerpsel':                      'tw.',
     'symbool':                            'symb.',
