@@ -353,7 +353,8 @@ TESTWOORDEN = [
     # --- Ronde 2 ---
     # Voegwoorden
     'omdat', 'want', 'hoewel', 'maar', 'toch',
-    # Voornaamwoorden
+    # Voornaamwoorden (persoonlijk, bezittelijk, wederkerend)
+    'ik', 'jij', 'wij', 'ons', 'jullie',
     'die', 'mijn', 'deze', 'wie', 'elk',
     # Bijv.nw. kandidaten zonder bijwoord-functie
     'zwanger', 'getrouwd', 'nuchter', 'leeg', 'rood',
