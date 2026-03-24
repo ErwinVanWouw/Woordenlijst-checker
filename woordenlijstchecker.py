@@ -1229,6 +1229,9 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
 
         _set_icon(dialog)
 
+        # Invoervak tonen tenzij het een 'Gebruik ...' bericht is
+        show_entry = not (error_message and error_message.startswith("Gebruik "))
+
         # Bepaal hoogte op basis van inhoud
         base_height = 180  # Basishoogte voor titel, knoppen en footer
 
@@ -1251,6 +1254,9 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         if alternatief_info:
             extra_height += 50
 
+        if show_entry:
+            extra_height += 55  # Invoervak + Zoek opnieuw-knop
+
         total_height = base_height + extra_height
 
         # Positioneer pop-up (opgeslagen positie of centrum)
@@ -1260,8 +1266,47 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         _bind_drag_save(dialog)
 
         # Hoofdtekst
-        main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
+        if show_entry:
+            main_text = "staat niet in Woordenlijst.org."
+        else:
+            main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
         tk.Label(dialog, text=main_text, pady=10).pack()
+
+        # Bewerkbaar invoervak met zoekknop
+        if show_entry:
+            entry_var = tk.StringVar(value=word)
+            entry_frame = tk.Frame(dialog)
+            entry_frame.pack(pady=(0, 8))
+
+            entry_widget = tk.Entry(entry_frame, textvariable=entry_var, width=20, font=("Arial", 10))
+            entry_widget.pack(side='left', padx=(0, 5))
+
+            def zoek_opnieuw(event=None):
+                new_word = entry_var.get().strip()
+                if not new_word:
+                    return
+                new_word = re.sub(r"[\u2019\u2018\u0060\u00B4\u02BC]", "'", new_word)
+                dialog.destroy()
+                def _do_search():
+                    if not check_rate_limit():
+                        return
+                    prisma_result = [None]
+                    prisma_thread = threading.Thread(
+                        target=lambda: prisma_result.__setitem__(0, check_prisma_alternatief(new_word))
+                    )
+                    prisma_thread.start()
+                    is_valid, checked_word, error_msg, article, word_info, gender, gender_info_list = check_word_online(new_word)
+                    if is_valid:
+                        show_success_popup(checked_word, article, word_info, gender, gender_info_list)
+                    else:
+                        prisma_thread.join(timeout=6)
+                        prisma_data = None if prisma_thread.is_alive() else prisma_result[0]
+                        if checked_word:
+                            show_failure_popup(checked_word, error_msg, prisma_data)
+                threading.Thread(target=_do_search, daemon=True).start()
+
+            tk.Button(entry_frame, text="Zoek opnieuw", command=zoek_opnieuw).pack(side='left')
+            entry_widget.bind('<Return>', zoek_opnieuw)
 
         # Suggesties of foutmelding
         if error_message:
@@ -1330,7 +1375,10 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         no_button.pack(side='left', padx=5)
 
         # Focus
-        dialog.after(100, lambda: no_button.focus_force())  # Kleine delay voor zekerheid
+        if show_entry:
+            dialog.after(100, lambda: entry_widget.focus_force())
+        else:
+            dialog.after(100, lambda: no_button.focus_force())
 
         # Bindings
         no_button.bind('<Return>', lambda e: no_action())
