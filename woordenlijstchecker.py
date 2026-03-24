@@ -23,27 +23,35 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5"
+VERSION = "1.5.1"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
 
-# Woordsoort-afkortingen voor popup-weergave
-POS_AFKORTINGEN = {
-    'hoofdwerkwoord': 'ww.',
-    'zelfstandig naamwoord': 'zn.',
-    'bijvoeglijk naamwoord': 'bn.',
-    'bijwoord': 'bw.',
-    'nevenschikkend voegwoord': 'nevenschikkend vw.',
-    'onderschikkend voegwoord': 'onderschikkend vw.',
-    'voegwoord': 'vw.',
-    'voorzetsel': 'vz.',
-    'voornaamwoord': 'vnw.',
-    'tussenwerpsel': 'tw.',
-    'lidwoord': 'lidw.',
-    'telwoord': 'telw.',
-    'uitdrukking': 'uitdr.',
-}
+# Woordsoort-prefixen voor popup-weergave (geordend van specifiek naar algemeen; eerste match wint)
+# None = genus/artikel uit label parsen (zelfstandig naamwoord)
+# 'RAW' = toon label ongewijzigd (voornaamwoord/voegwoord subtypes)
+WOORDSOORT_PREFIXES = [
+    ('bijvoeglijk naamwoord / bijwoord', 'bijvoeglijk naamwoord / bijwoord'),
+    ('bijvoeglijk naamwoord',            'bijvoeglijk naamwoord'),   # defensief, nooit gezien
+    ('zelfstandig naamwoord',            None),
+    ('hoofdwerkwoord',                   'werkwoord'),
+    ('bijwoord',                         'bijwoord'),                # vangt ook '(afkorting)'
+    ('voorzetsel / achterzetsel',        'voorzetsel / achterzetsel'),
+    ('voorzetsel',                       'voorzetsel'),
+    ('nevenschikkend voegwoord',         'RAW'),
+    ('onderschikkend voegwoord',         'RAW'),
+    ('persoonlijk voornaamwoord',        'RAW'),
+    ('bezittelijk voornaamwoord',        'RAW'),
+    ('aanwijzend voornaamwoord',         'RAW'),
+    ('betrekkelijk voornaamwoord',       'RAW'),
+    ('vragend voornaamwoord',            'RAW'),
+    ('onbepaald voornaamwoord',          'RAW'),
+    ('hoofdtelwoord',                    'telwoord'),
+    ('rangtelwoord',                     'telwoord'),                # defensief
+    ('tussenwerpsel',                    'tussenwerpsel'),           # vangt subtype-suffix
+    ('symbool',                          'symbool'),
+]
 
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
@@ -251,6 +259,93 @@ def get_popup_position(width, height):
     except Exception as e:
         print(f"[Waarschuwing] Kon pop-uppositie niet valideren: {e}")
         return POPUP_X, POPUP_Y
+
+def _extract_woordsoort_entries(xml, word):
+    """Extraheert alle woordsoort-entries uit de API-XML voor een geldig woord.
+
+    Werkwijze:
+    1. Splits XML in <found_lemmata>-blokken
+    2. Per blok: strip <paradigm>-subblokken (labels daarin niet meenemen)
+    3. Pak de eerste <label> → woordsoort op lemma-niveau
+    4. Match via WOORDSOORT_PREFIXES (specifiek → algemeen)
+    5. Voor zelfstandig naamwoord: artikel+genus uit de label-string parsen
+    6. Voor werkwoord: pak <lemma> uit hetzelfde blok (= infinitief)
+    7. Dedupliceer op display-string
+
+    Retourneert geordende lijst van dicts met sleutels:
+      display, article, gender, lemma
+    """
+    blocks = re.findall(r'<found_lemmata>.*?</found_lemmata>', xml, re.DOTALL)
+    seen_displays = set()
+    entries = []
+
+    for block in blocks:
+        # Strip paradigm-blokken zodat labels daarin niet meekomen
+        clean_block = re.sub(r'<paradigm>.*?</paradigm>', '', block, flags=re.DOTALL)
+
+        # Eerste <label> in het blok is de woordsoort-aanduiding op lemma-niveau
+        labels_in_block = re.findall(r'<label>(.*?)</label>', clean_block)
+        if not labels_in_block:
+            continue
+        label = labels_in_block[0]
+
+        # Bepaal display en artikel/genus via WOORDSOORT_PREFIXES
+        display = None
+        article = None
+        gender = None
+
+        matched = False
+        for prefix, mapping in WOORDSOORT_PREFIXES:
+            if label.startswith(prefix):
+                matched = True
+                if mapping is None:
+                    # Zelfstandig naamwoord: genus uit label parsen
+                    genus_match = re.search(r'\(([^)]+)\)', label)
+                    genus_raw = genus_match.group(1) if genus_match else ''
+                    genus_core = re.sub(r',.*', '', genus_raw).strip()  # 'm' uit 'm, afkorting'
+                    if genus_core == 'o':
+                        article = 'het'
+                    elif '/' in genus_core and 'o' in genus_core:
+                        article = 'de/het'
+                    else:
+                        article = 'de'
+                    gender = genus_core if genus_core else None
+                    display = f"zelfstandig naamwoord"
+                elif mapping == 'RAW':
+                    display = label
+                else:
+                    display = mapping
+                break
+
+        if not matched:
+            # Fallback: toon raw label
+            display = label
+
+        # Pak lemma voor werkwoord-infinitief
+        lemma_match = re.search(r'<lemma>(.*?)</lemma>', clean_block)
+        entry_lemma = lemma_match.group(1) if lemma_match else word
+
+        # Dedupliceer op basis van volledige display-string inclusief genus
+        if article and gender:
+            dedup_key = f"{display}|{article}|{gender}"
+        elif article:
+            dedup_key = f"{display}|{article}"
+        else:
+            dedup_key = display
+
+        if dedup_key in seen_displays:
+            continue
+        seen_displays.add(dedup_key)
+
+        entries.append({
+            'display': display,
+            'article': article,
+            'gender': gender,
+            'lemma': entry_lemma,
+        })
+
+    return entries
+
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
