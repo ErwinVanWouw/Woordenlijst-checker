@@ -283,66 +283,64 @@ def _extract_woordsoort_entries(xml, word):
         # Strip paradigm-blokken zodat labels daarin niet meekomen
         clean_block = re.sub(r'<paradigm>.*?</paradigm>', '', block, flags=re.DOTALL)
 
-        # Eerste <label> in het blok is de woordsoort-aanduiding op lemma-niveau
+        # Alle <label>-elementen in het blok zijn woordsoort-aanduidingen op lemma-niveau
         labels_in_block = re.findall(r'<label>(.*?)</label>', clean_block)
         if not labels_in_block:
             continue
-        label = labels_in_block[0]
 
-        # Bepaal display en artikel/genus via WOORDSOORT_PREFIXES
-        display = None
-        article = None
-        gender = None
-
-        matched = False
-        for prefix, mapping in WOORDSOORT_PREFIXES:
-            if label.startswith(prefix):
-                matched = True
-                if mapping is None:
-                    # Zelfstandig naamwoord: genus uit label parsen
-                    genus_match = re.search(r'\(([^)]+)\)', label)
-                    genus_raw = genus_match.group(1) if genus_match else ''
-                    genus_core = re.sub(r',.*', '', genus_raw).strip()  # 'm' uit 'm, afkorting'
-                    if genus_core == 'o':
-                        article = 'het'
-                    elif '/' in genus_core and 'o' in genus_core:
-                        article = 'de/het'
-                    else:
-                        article = 'de'
-                    gender = genus_core if genus_core else None
-                    display = f"zelfstandig naamwoord"
-                elif mapping == 'RAW':
-                    display = label
-                else:
-                    display = mapping
-                break
-
-        if not matched:
-            # Fallback: toon raw label
-            display = label
-
-        # Pak lemma voor werkwoord-infinitief
+        # Lemma is hetzelfde voor alle entries binnen dit blok
         lemma_match = re.search(r'<lemma>(.*?)</lemma>', clean_block)
         entry_lemma = lemma_match.group(1) if lemma_match else word
 
-        # Dedupliceer op basis van volledige display-string inclusief genus
-        if article and gender:
+        # Verwerk elk label als aparte woordsoort-entry
+        for label in labels_in_block:
+            if not label:
+                continue
+
+            # Bepaal display en artikel/genus via WOORDSOORT_PREFIXES
+            display = None
+            article = None
+            gender = None
+
+            matched = False
+            for prefix, mapping in WOORDSOORT_PREFIXES:
+                if label.startswith(prefix):
+                    matched = True
+                    if mapping is None:
+                        # Zelfstandig naamwoord: genus uit label parsen
+                        genus_match = re.search(r'\(([^)]+)\)', label)
+                        genus_raw = genus_match.group(1) if genus_match else ''
+                        genus_core = re.sub(r',.*', '', genus_raw).strip()  # 'm' uit 'm, afkorting'
+                        if genus_core == 'o':
+                            article = 'het'
+                        elif '/' in genus_core and 'o' in genus_core:
+                            article = 'de/het'
+                        else:
+                            article = 'de'
+                        gender = genus_core if genus_core else None
+                        display = "zelfstandig naamwoord"
+                    elif mapping == 'RAW':
+                        display = label
+                    else:
+                        display = mapping
+                    break
+
+            if not matched:
+                # Fallback: toon raw label
+                display = label
+
+            # Dedupliceer — sleutel altijd 3-delig om overslaan van tweede genus te voorkomen
             dedup_key = f"{display}|{article}|{gender}"
-        elif article:
-            dedup_key = f"{display}|{article}"
-        else:
-            dedup_key = display
+            if dedup_key in seen_displays:
+                continue
+            seen_displays.add(dedup_key)
 
-        if dedup_key in seen_displays:
-            continue
-        seen_displays.add(dedup_key)
-
-        entries.append({
-            'display': display,
-            'article': article,
-            'gender': gender,
-            'lemma': entry_lemma,
-        })
+            entries.append({
+                'display': display,
+                'article': article,
+                'gender': gender,
+                'lemma': entry_lemma,
+            })
 
     return entries
 
@@ -975,17 +973,17 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
         # Bepaal pop-upgrootte op basis van inhoud
         entries = word_info.get('entries', []) if word_info else []
+
+        def _entry_display_len(e):
+            lemma = e.get('lemma', word)
+            if e.get('article') and e.get('gender'):
+                return len(f"'{lemma}'  {e['article']} ({e['gender']})")
+            elif e.get('display'):
+                return len(f"'{lemma}'  {e['display']}")
+            return len(f"'{lemma}'")
+
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
-
-            def _entry_display_len(e):
-                lemma = e.get('lemma', word)
-                if e.get('article') and e.get('gender'):
-                    return len(f"'{lemma}'  {e['article']} ({e['gender']})")
-                elif e.get('display'):
-                    return len(f"'{lemma}'  {e['display']}")
-                return len(f"'{lemma}'")
-
             max_line_len = max(_entry_display_len(e) for e in entries)
         elif article:
             popup_height = 160
@@ -993,7 +991,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
             popup_height = 160
-            max_line_len = max(len(f"'{word}'"), len("staat in Woordenlijst.org"))
+            disp0 = entries[0].get('display') if entries else None
+            first_line = f"'{word}'  {disp0}" if disp0 else f"'{word}'"
+            max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
 
         # Bereken benodigde breedte op basis van tekstlengte
         estimated_width = max_line_len * 8 + 200
@@ -1068,22 +1068,41 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
 
-        else:
-            # Normale tekst: splits woord en overige tekst in aparte labels
+        elif len(entries) == 1 and not article:
+            # Enkele niet-naamwoord entry (werkwoord, voegwoord, bijwoord, etc.)
+            entry = entries[0]
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
+            first_line_frame = tk.Frame(text_frame, bg='white')
+            first_line_frame.pack(anchor='w')
+
+            display_word = entry.get('lemma', word)
+            word_lbl = tk.Label(first_line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
+            word_lbl.pack(side='left')
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
+
+            disp = entry.get('display') or ''
+            if disp:
+                if display_word.lower() != word.lower():
+                    disp += f"  (van '{display_word}')"
+                tk.Label(first_line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
+
+            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+
+        else:
+            # Normale tekst: woord zonder extra woordsoort-info
+            text_frame = tk.Frame(frame, bg='white')
+            text_frame.pack(side='left', padx=10)
+
+            first_line_frame = tk.Frame(text_frame, bg='white')
+            first_line_frame.pack(anchor='w')
+            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+            word_lbl.pack(side='left')
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+
             if article:
-                first_line_frame = tk.Frame(text_frame, bg='white')
-                first_line_frame.pack(anchor='w')
-                word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
-                word_lbl.pack(side='left')
-                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
                 tk.Label(first_line_frame, text=f" ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
-            else:
-                word_lbl = tk.Label(text_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
-                word_lbl.pack(anchor='w')
-                word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
