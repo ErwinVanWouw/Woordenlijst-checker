@@ -53,6 +53,29 @@ WOORDSOORT_PREFIXES = [
     ('symbool',                          'symbool'),
 ]
 
+# Woordsoort-afkortingen voor popup-weergave
+# Sleutels zijn de display-waarden die WOORDSOORT_PREFIXES produceert (of de RAW-labels)
+POS_AFKORTINGEN = {
+    'werkwoord':                          'ww.',
+    'zelfstandig naamwoord':              'znw.',
+    'bijvoeglijk naamwoord / bijwoord':   'bn./bw.',
+    'bijvoeglijk naamwoord':              'bn.',
+    'bijwoord':                           'bw.',
+    'voorzetsel / achterzetsel':          'vz./az.',
+    'voorzetsel':                         'vz.',
+    'nevenschikkend voegwoord':           'nevenschikkend vw.',
+    'onderschikkend voegwoord':           'onderschikkend vw.',
+    'persoonlijk voornaamwoord':          'pers. vnw.',
+    'bezittelijk voornaamwoord':          'bez. vnw.',
+    'aanwijzend voornaamwoord':           'aanw. vnw.',
+    'betrekkelijk voornaamwoord':         'betr. vnw.',
+    'vragend voornaamwoord':              'vr. vnw.',
+    'onbepaald voornaamwoord':            'onbep. vnw.',
+    'telwoord':                           'telw.',
+    'tussenwerpsel':                      'tw.',
+    'symbool':                            'symb.',
+}
+
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
 
@@ -329,17 +352,24 @@ def _extract_woordsoort_entries(xml, word):
                 # Fallback: toon raw label
                 display = label
 
+            # Vervang volledige naam door afkorting (indien beschikbaar)
+            display = POS_AFKORTINGEN.get(display, display)
+
             # Dedupliceer — sleutel altijd 3-delig om overslaan van tweede genus te voorkomen
             dedup_key = f"{display}|{article}|{gender}"
             if dedup_key in seen_displays:
                 continue
             seen_displays.add(dedup_key)
 
+            # Meervoud-vlag: naamwoord waarvan het lemma afwijkt van het gezochte woord
+            is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
+
             entries.append({
                 'display': display,
                 'article': article,
                 'gender': gender,
                 'lemma': entry_lemma,
+                'is_meervoud': is_meervoud,
             })
 
     return entries
@@ -975,24 +1005,35 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         entries = word_info.get('entries', []) if word_info else []
 
         def _entry_display_len(e):
-            lemma = e.get('lemma', word)
-            if e.get('article') and e.get('gender'):
-                return len(f"'{lemma}'  {e['article']} ({e['gender']})")
-            elif e.get('display'):
-                return len(f"'{lemma}'  {e['display']}")
-            return len(f"'{lemma}'")
+            disp = e.get('display', '')
+            if e.get('is_meervoud'):
+                return len(f"'{word}'  {disp} mv.")
+            elif e.get('article') and e.get('gender'):
+                return len(f"'{word}'  {disp}  {e['article']} ({e['gender']})")
+            elif e.get('article'):
+                return len(f"'{word}'  {disp}  {e['article']}")
+            elif disp:
+                return len(f"'{word}'  {disp}")
+            return len(f"'{word}'")
 
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
             max_line_len = max(_entry_display_len(e) for e in entries)
         elif article:
             popup_height = 160
-            first_line = f"'{word}' {article} ({gender})" if gender else f"'{word}' ({article})"
+            disp0 = entries[0].get('display', 'znw.') if entries else 'znw.'
+            first_line = (f"'{word}'  {disp0}  {article} ({gender})" if gender
+                          else f"'{word}'  {disp0}  {article}")
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
             popup_height = 160
             disp0 = entries[0].get('display') if entries else None
-            first_line = f"'{word}'  {disp0}" if disp0 else f"'{word}'"
+            if entries and entries[0].get('is_meervoud'):
+                first_line = f"'{word}'  {disp0} mv."
+            elif disp0:
+                first_line = f"'{word}'  {disp0}"
+            else:
+                first_line = f"'{word}'"
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
 
         # Bereken benodigde breedte op basis van tekstlengte
@@ -1032,28 +1073,34 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 line_frame = tk.Frame(text_frame, bg='white')
                 line_frame.pack(anchor='w')
 
-                display_word = entry.get('lemma', word)
-                word_lbl = tk.Label(line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
+                # Altijd het gezochte woord tonen, niet het lemma
+                word_lbl = tk.Label(line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
                 word_lbl.pack(side='left')
                 if i == 0:
-                    word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
+                    word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
 
-                if entry.get('article') and entry.get('gender'):
-                    # Naamwoord: toon lidwoord cursief en geslacht
+                disp = entry.get('display', '')
+                if entry.get('is_meervoud'):
+                    # Meervoudsvorm van naamwoord
+                    tk.Label(line_frame, text=f"  {disp} mv.", font=("Arial", 12), bg='white').pack(side='left')
+                elif entry.get('article') and entry.get('gender'):
+                    # Enkelvoudig naamwoord met geslacht
+                    tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
                     tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
                     tk.Label(line_frame, text=f" ({entry['gender']})", font=("Arial", 12), bg='white').pack(side='left')
-                elif entry.get('display'):
+                elif entry.get('article'):
+                    # Naamwoord zonder geslacht
+                    tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
+                    tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+                elif disp:
                     # Werkwoord / bijwoord / voegwoord / etc.
-                    disp = entry['display']
-                    if entry.get('lemma', word).lower() != word.lower():
-                        disp += f"  (van '{entry['lemma']}')"
                     tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
 
             # "staat in Woordenlijst.org" regel
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
 
         elif article and gender:
-            # Enkele entry met italics
+            # Enkele naamwoord-entry
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
@@ -1063,7 +1110,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
             word_lbl.pack(side='left')
             word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
-            tk.Label(first_line_frame, text=f" {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+            disp0 = entries[0].get('display', 'znw.') if entries else 'znw.'
+            tk.Label(first_line_frame, text=f"  {disp0}", font=("Arial", 12), bg='white').pack(side='left')
+            tk.Label(first_line_frame, text=f"  {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
@@ -1077,21 +1126,18 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             first_line_frame = tk.Frame(text_frame, bg='white')
             first_line_frame.pack(anchor='w')
 
-            display_word = entry.get('lemma', word)
-            word_lbl = tk.Label(first_line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
+            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
             word_lbl.pack(side='left')
-            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
 
             disp = entry.get('display') or ''
             if disp:
-                if display_word.lower() != word.lower():
-                    disp += f"  (van '{display_word}')"
                 tk.Label(first_line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         else:
-            # Normale tekst: woord zonder extra woordsoort-info
+            # Fallback: woord zonder volledig gestructureerde woordsoort-info
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
@@ -1101,8 +1147,13 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             word_lbl.pack(side='left')
             word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
 
-            if article:
-                tk.Label(first_line_frame, text=f" ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
+            if entries and entries[0].get('is_meervoud'):
+                disp0 = entries[0].get('display', 'znw.')
+                tk.Label(first_line_frame, text=f"  {disp0} mv.", font=("Arial", 12), bg='white').pack(side='left')
+            elif entries and entries[0].get('display') and not article:
+                tk.Label(first_line_frame, text=f"  {entries[0]['display']}", font=("Arial", 12), bg='white').pack(side='left')
+            elif article:
+                tk.Label(first_line_frame, text=f"  ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
