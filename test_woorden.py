@@ -19,6 +19,7 @@ import requests
 WOORDSOORT_PREFIXES = [
     ('bijvoeglijk naamwoord / bijwoord', 'bijvoeglijk naamwoord / bijwoord'),
     ('bijvoeglijk naamwoord',            'bijvoeglijk naamwoord'),
+    ('zelfstandignaamwoordgroep',         'zelfstandignaamwoordgroep'),
     ('zelfstandig naamwoord',            None),
     ('hoofdwerkwoord',                   'werkwoord'),
     ('bijwoord',                         'bijwoord'),
@@ -41,6 +42,7 @@ WOORDSOORT_PREFIXES = [
 
 POS_AFKORTINGEN = {
     'werkwoord':                          'ww.',
+    'zelfstandignaamwoordgroep':          'znw. groep',
     'zelfstandig naamwoord':              'znw.',
     'bijvoeglijk naamwoord / bijwoord':   'bn./bw.',
     'bijvoeglijk naamwoord':              'bn.',

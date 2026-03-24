@@ -34,6 +34,7 @@ UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-
 WOORDSOORT_PREFIXES = [
     ('bijvoeglijk naamwoord / bijwoord', 'bijvoeglijk naamwoord / bijwoord'),
     ('bijvoeglijk naamwoord',            'bijvoeglijk naamwoord'),   # defensief, nooit gezien
+    ('zelfstandignaamwoordgroep',         'zelfstandignaamwoordgroep'),
     ('zelfstandig naamwoord',            None),
     ('hoofdwerkwoord',                   'werkwoord'),
     ('bijwoord',                         'bijwoord'),                # vangt ook '(afkorting)'
@@ -58,6 +59,7 @@ WOORDSOORT_PREFIXES = [
 # Sleutels zijn de display-waarden die WOORDSOORT_PREFIXES produceert (of de RAW-labels)
 POS_AFKORTINGEN = {
     'werkwoord':                          'ww.',
+    'zelfstandignaamwoordgroep':          'znw. groep',
     'zelfstandig naamwoord':              'znw.',
     'bijvoeglijk naamwoord / bijwoord':   'bn./bw.',
     'bijvoeglijk naamwoord':              'bn.',
