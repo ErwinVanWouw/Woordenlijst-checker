@@ -18,7 +18,7 @@ Deze Python-tool maakt gebruik van de volgende databases, maar is op geen enkele
 
 Het woordenbestand en de applicatie op [Woordenlijst.org](https://woordenlijst.org/) worden ontwikkeld en beheerd door het [Instituut voor de Nederlandse Taal](https://ivdnt.org/) in opdracht van de [Taalunie](https://taalunie.org/). Het woordenbestand en de applicatie op [Onzetaal.nl](https://onzetaal.nl/taalloket/zoek-spelling) worden ontwikkeld en beheerd door [Genootschap Onze Taal](https://onzetaal.nl) en [Uitgeverij Unieboek Het Spectrum bv](https://www.prisma.nl/).
 
-Website Woordenlijst-checker: https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker
+Website Woordenlijst-checker: [https://www.blackkite.nl/nieuws/woordenlijst-checker.php](https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker)
 
 ## Privacystatement
 
@@ -49,7 +49,7 @@ Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictog
 https://youtu.be/wGiD9uJ44wc
 
 ## Support
-Hulp of ondersteuning nodig? Ga naar https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker
+Hulp of ondersteuning nodig? Ga naar [https://www.blackkite.nl/nieuws/woordenlijst-checker.php](https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker)
 
 
 ==========================
@@ -75,7 +75,7 @@ The Woordenlijst-checker tool uses the following databases but is in no other wa
 The database and application for [Woordenlijst.org](https://woordenlijst.org/) is developed and managed by [Instituut voor de Nederlandse Taal](https://ivdnt.org/) under the authority of the [Taalunie](https://taalunie.org/).
 The database and application for [Onzetaal.nl](https://onzetaal.nl/taalloket/zoek-spelling) is developed and managed by [Genootschap Onze Taal](https://onzetaal.nl) and [Uitgeverij Unieboek Het Spectrum bv](https://www.prisma.nl/).
 
-Dutch website Woordenlijst-checker: https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker
+Dutch website Woordenlijst-checker: [https://www.blackkite.nl/nieuws/woordenlijst-checker.php](https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker-en)
 
 # Privacy statement
 
@@ -104,4 +104,4 @@ Can't see a system tray icon? Windows 10/11 automatically hides newly added tray
 https://youtu.be/wGiD9uJ44wc
 
 ## Support
-Need help or support? Go to https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker
+Need help or support? Go to [https://www.blackkite.nl/nieuws/woordenlijst-checker.php](https://www.blackkite.nl/nieuws/woordenlijst-checker.php?utm_source=app&utm_medium=desktop&utm_campaign=woordenlijst-checker-en)
