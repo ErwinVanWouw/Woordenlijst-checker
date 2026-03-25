@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5.1) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -17,15 +17,17 @@ This file provides guidance for AI assistants working in this repository.
 
 ```
 Woordenlijst-checker/
-├── woordenlijstchecker.py   # Entire application — ~1347 lines, single file
+├── woordenlijstchecker.py   # Entire application — ~1570 lines, single file
 ├── README.md                # End-user documentation
 ├── LICENSE                  # GNU GPLv3
 ├── over.md                  # App info shown in the "Over" popup (supports markdown links)
 ├── version.txt              # Current version number (used for update checks)
+├── version_info.txt         # PyInstaller Windows version metadata (VERSIONINFO resource)
+├── test_woorden.py          # CLI tester for problematic input words (no GUI, no hotkey)
 └── config.ini               # Auto-generated at runtime (NOT in repo)
 ```
 
-There are **no subdirectories, no test files, and no CI/CD configuration.**
+There are **no subdirectories and no CI/CD configuration.**
 
 ---
 
@@ -38,16 +40,19 @@ The application is a **monolithic single-file Python script**. All logic lives i
 ```
 main()
  ├─ _start_tray()                    ← starts pystray tray icon in separate thread
- └─ keyboard.add_hotkey(HOTKEY, ...) ← registers global hotkey (default: F9)
-       └─ threading.Thread(target=perform_check).start()
-             ├─ check_rate_limit()           ← max 30 requests/minute
-             ├─ clipboard read (Ctrl+C / Ctrl+Ins fallback)
-             ├─ check_prisma_alternatief()   ← parallel thread (spelling.prisma.nl)
-             ├─ check_word_online(word)       ← API call to woordenlijst.org
-             └─ show_success_popup() OR show_failure_popup(alternatief_info=...)
+ ├─ keyboard.add_hotkey(HOTKEY, ...) ← registers global hotkey (default: F9)
+ │     └─ threading.Thread(target=perform_check).start()
+ │           ├─ check_rate_limit()           ← max 30 requests/minute
+ │           ├─ clipboard read (Ctrl+C / Ctrl+Ins fallback)
+ │           ├─ check_prisma_alternatief()   ← parallel thread (spelling.prisma.nl)
+ │           ├─ check_word_online(word)       ← API call to woordenlijst.org
+ │           └─ show_success_popup() OR show_failure_popup(alternatief_info=...)
+ └─ _herregistreer_sneltoets()       ← periodic hotkey re-registration every 5 min
 ```
 
 The main thread blocks on `keyboard.wait('esc')`. Each hotkey press spawns a new thread for non-blocking UI. The tray icon runs in its own thread and dispatches menu actions back to the tkinter thread via `_popup_root.after()`.
+
+**Hotkey auto-recovery:** Windows silently removes `WH_KEYBOARD_LL` hooks after sleep or screen lock. `_herregistreer_sneltoets()` runs via `_popup_root.after()` every 5 minutes, calling `keyboard.unhook_all()` + `keyboard.add_hotkey()` to keep the hook alive. The same `unhook_all` call is made before every manual hotkey change in `sla_hotkey_op()`.
 
 ---
 
@@ -90,8 +95,8 @@ The application runs as a system tray icon (via `pystray`) with the following me
 ### UI / Popups
 | Function | Purpose |
 |---|---|
-| `show_success_popup(word, article, word_info, gender, gender_info_list)` | Green checkmark popup, auto-closes after 3 seconds; supports homonyms, plurals, ambiguous words |
-| `show_failure_popup(word, error_message, alternatief_info)` | Error dialog with clickable suggestion links, optional "witte spelling" result from Prisma, and Yes/No buttons to open woordenlijst.org |
+| `show_success_popup(word, article, word_info, gender, gender_info_list)` | Green checkmark popup, auto-closes after 3 seconds; supports homonyms, plurals, ambiguous words; shows part-of-speech abbreviation per entry |
+| `show_failure_popup(word, error_message, alternatief_info)` | Error dialog with clickable suggestion links, optional "witte spelling" result from Prisma, editable re-search field, and Yes/No buttons to open woordenlijst.org |
 | `show_over_popup()` | "Over" dialog — reads and displays `over.md` with inline link rendering |
 | `show_help_popup()` | Help dialog — reads and displays `README.md` with inline link rendering |
 | `show_config_popup()` | Settings dialog — lets user change hotkey and reset popup position |
@@ -105,6 +110,8 @@ The application runs as a system tray icon (via `pystray`) with the following me
 | `_get_over_path()` | Returns path to `over.md` (works for `.py` and `.exe`) |
 | `_set_icon(window)` | Sets the app icon on a tkinter window |
 | `_render_inline(text_widget, line, link_counter)` | Renders markdown inline links in a `Text` widget |
+| `_entry_display_word(entry)` | Returns the display word for a homonym entry, using the lemma's own capitalisation |
+| `_herregistreer_sneltoets()` | Inner function in `main()` — periodically re-registers the hotkey to recover from sleep/lock |
 
 ### Entry Points
 | Function | Purpose |
@@ -139,7 +146,7 @@ Response: XML with <corrections> (pipe-separated) or <best_guess>
 - `<wordform>` / `<lemma>` — matched forms
 - `<paradigm>` blocks — inflection data (singular/plural, gender)
 - `lemma_part_of_speech` attributes — extract gender (`m`, `f`, `n`, `c`)
-- `<label>` — word type tags (`hoofdwerkwoord`, `meervoud`, `enkelvoud`, `zelfstandig naamwoord`)
+- `<label>` — word type tags (`hoofdwerkwoord`, `meervoud`, `enkelvoud`, `zelfstandig naamwoord`, etc.); all labels per `<found_lemmata>` block are processed and mapped via `WOORDSOORT_PREFIXES`
 
 ### Prisma Alternative Spelling (spelling.prisma.nl)
 
@@ -215,7 +222,9 @@ Understanding the checking logic is essential before modifying `check_word_onlin
 
 6. **Plural nouns**: Words found only as `<label>meervoud</label>` (plural) always get article `de`; their singular lemma may be shown for reference.
 
-7. **Homonyms**: When multiple lemma entries with different gender/article combinations are found for the same word, `gender_info_list` is populated as a list of dicts, and the popup renders each variant on a separate line.
+7. **Homonyms**: When multiple lemma entries are found for the same word, `gender_info_list` is populated as a list of dicts and the popup renders each variant on a separate line. Each entry carries its own `lemma` key so that differing capitalisations (e.g. `weegschaal` vs. `Weegschaal`) are displayed correctly via `_entry_display_word()`.
+
+8. **Part-of-speech abbreviations**: Each entry is mapped to a short Dutch label (e.g. *znw.*, *bnw.*, *ww.*, *vnw.*, *naam*) via the `WOORDSOORT_PREFIXES` lookup table. Noun entries for plain singular nouns omit the *znw.* prefix to keep the popup clean.
 
 ---
 
@@ -231,6 +240,7 @@ Dutch nouns have grammatical gender. The code extracts this from `lemma_part_of_
 | `c` (common) | de | m/v |
 | `m` + `f` combined | de | m/v |
 | plural | de | (none shown) |
+| proper noun (`NOU-P`) | de | *naam* (no gender shown) |
 
 ---
 
@@ -239,7 +249,7 @@ Dutch nouns have grammatical gender. The code extracts this from `lemma_part_of_
 - **Language**: Code comments and print statements are in Dutch. Variable names and function names are in Dutch or English (mixed).
 - **Single-file design**: Do not split into multiple files or add a package structure without explicit user request. The monolithic design is intentional for distribution simplicity.
 - **No type hints**: The codebase does not use Python type annotations. Do not add them unless requested.
-- **No test suite**: There are no tests. If adding tests, use `pytest` and create a `tests/` directory.
+- **Test script**: `test_woorden.py` is a lightweight CLI tester for specific problematic words (no GUI, no hotkey, no clipboard). Run it directly with `python test_woorden.py`. It calls `check_word_online()` directly and prints results. Add words to the `TESTWOORDEN` list inside the file.
 - **No linter config**: No `.flake8`, `.pylintrc`, or `pyproject.toml` exist. Follow PEP 8 style.
 - **Error handling**: All network calls are wrapped in try-except. Errors are printed to stdout using `[Tag]` prefix format (e.g., `[Fout]`, `[Info]`, `[Waarschuwing]`, `[Resultaat]`).
 - **GUI**: Uses `tkinter` only. Do not introduce other GUI frameworks.
@@ -267,11 +277,17 @@ On startup, the script:
 
 ---
 
-## No Tests, No CI/CD
+## Testing
 
-- There are currently **no automated tests**.
-- There is **no CI/CD pipeline** (no GitHub Actions, no pre-commit hooks, etc.).
-- If adding tests, note that most functions depend on tkinter GUI, live network access, or system clipboard — integration/manual testing is the primary validation method.
+There is **no automated test suite** and **no CI/CD pipeline**.
+
+`test_woorden.py` is a manual CLI helper: it calls `check_word_online()` directly for a predefined list of words and prints the results. Useful for quickly verifying API parsing changes. Run with:
+
+```bash
+python test_woorden.py
+```
+
+Most functions depend on tkinter GUI, live network access, or the system clipboard — integration/manual testing remains the primary validation method.
 
 ---
 
