@@ -1,5 +1,5 @@
 # Woordenlijst-checker
-Met deze tool kunt snel woorden opzoeken in de officiële (groene) en onofficiële (witte) woordenlijst vanuit uw actieve Windows-app
+Met deze tool kunt u snel woorden opzoeken in de officiële (groene) en onofficiële (witte) woordenlijst vanuit uw actieve Windows-app
 
 - Windows-breed inzetbaar voor elke app
 - De standaard sneltoets F9 is aanpasbaar via het systeemvakpictogram
@@ -25,7 +25,7 @@ U kunt ook aanpassen waar de pop-ups op uw scherm verschijnen en op welke monito
 
 Valt het pop-upvenster buiten het zichtbare gebied van uw scherm? Klik op het systeemvakpictogram van Woordenlijst-checker, ga naar Instellingen en klik op 'Reset positie'.
 
-Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictogrammen automatisch in de overloopbalk (het pijltje naast de klok). U kunt het pictogram ook zichtbaar maken via *Persoonlijke instellingen > Taakbalk > Andere systeemvakpictogrammen*.
+Ziet u geen systeemvakpictogram? Windows 10/11 verbergt nieuw toegevoegde pictogrammen automatisch in de overloopbalk (het pijltje naast de klok). U kunt het pictogram ook zichtbaar maken via Persoonlijke instellingen > Taakbalk > Andere systeemvakpictogrammen.
 
 ## Verantwoording
 Deze Python-tool maakt gebruik van de volgende databases, maar is op geen enkele andere wijze gelieerd aan aan de organisaties die deze databases beheren.
