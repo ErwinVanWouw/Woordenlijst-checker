@@ -5,7 +5,7 @@ Met deze tool kunt u snel woorden opzoeken in de officiële (groene) en onoffici
 - De standaard sneltoets F9 is aanpasbaar via het systeemvakpictogram
 - Multi-monitor support 
 - Toont 3 seconden een verificatievenster als een woord voorkomt
-- Toont automatisch het bijbehorende woordsoort
+- Toont automatisch de bijbehorende woordsoort
 - Mogelijkheid om door te klikken naar Woordenlijst.org als een woord niet voorkomt 
 
 ## Installatie
