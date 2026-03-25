@@ -1,5 +1,5 @@
 # Woordenlijst-checker
-Met deze tool kunt snel woorden opzoeken in de officiële (groene) en onofficiële (witte) woordenlijst vanuit uw actieve Windows-app
+Met deze tool kunt u snel woorden opzoeken in de officiële (groene) en onofficiële (witte) woordenlijst vanuit uw actieve Windows-app
 
 - Windows-breed inzetbaar voor elke app
 - De standaard sneltoets F9 is aanpasbaar via het systeemvakpictogram
