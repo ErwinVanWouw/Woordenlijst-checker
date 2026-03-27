@@ -67,6 +67,8 @@ def laad_verwachtingen(pad):
         if term is None:
             continue
         term = str(term).strip()
+        if term.startswith('*'):
+            continue  # nootrij overslaan
 
         labels = {}
         totaal = 0
@@ -94,6 +96,17 @@ def effectieve_label(entry):
     return entry.get('display', '')
 
 
+def normaliseer_gevonden(labels):
+    """
+    Pas Excel-telnormen toe op gevonden labels:
+    - 2 of meer ww.-entries worden als 1 geteld (per noot in Excel).
+    """
+    result = dict(labels)
+    if result.get('ww.', 0) >= 2:
+        result['ww.'] = 1
+    return result
+
+
 def controleer_woord(woord, verwacht):
     """
     Controleer één woord tegen de verwachting.
@@ -103,11 +116,12 @@ def controleer_woord(woord, verwacht):
     is_valid, _, error_msg, _, word_info, _, _ = check_word_online(woord_norm)
 
     entries = (word_info or {}).get('entries', [])
-    gevonden_labels = {}
+    gevonden_labels_raw = {}
     for entry in entries:
         lbl = effectieve_label(entry)
         if lbl:
-            gevonden_labels[lbl] = gevonden_labels.get(lbl, 0) + 1
+            gevonden_labels_raw[lbl] = gevonden_labels_raw.get(lbl, 0) + 1
+    gevonden_labels = normaliseer_gevonden(gevonden_labels_raw)
     gevonden_totaal = sum(gevonden_labels.values())
 
     verwacht_totaal = verwacht['totaal']
