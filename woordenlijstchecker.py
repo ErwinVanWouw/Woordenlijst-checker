@@ -444,24 +444,36 @@ def check_word_online(word):
             word_info = {'entries': entries} if entries else None
 
             # Meervoud-detectie (case-insensitief: API retourneert altijd kleine letters)
-            is_plural = False
-            is_also_singular = False
-            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized.lower()) + r'</wordform>'
-            if re.search(plural_pattern, xml_content, re.DOTALL):
-                is_plural = True
-                paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
-                is_also_singular = any(
-                    re.search(r'<label>enkelvoud</label>', block) and
-                    re.search(r'<wordform>' + re.escape(word_normalized.lower()) + r'</wordform>', block)
-                    for block in paradigm_blocks
-                )
-                if not is_also_singular:
-                    article = 'de'
-                    gender = None
-                    print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+            wn_lower = re.escape(word_normalized.lower())
+            paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
-            # Invariant naamwoord (bijv. chassis): zowel enkelvoud als meervoud → voeg meervoud-entry toe
-            if is_plural and is_also_singular and entries:
+            # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
+            is_plural = bool(re.search(
+                r'<label>meervoud</label>.*?<wordform>' + wn_lower + r'</wordform>',
+                xml_content, re.DOTALL
+            ))
+
+            # Per-blok: woord als meervoud binnen één paradigmablock (voor invariant naamwoord)
+            is_meervoud_in_block = any(
+                re.search(r'<label>meervoud</label>', block) and
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                for block in paradigm_blocks
+            )
+
+            # Per-blok: woord ook als enkelvoud binnen één paradigmablock
+            is_also_singular = any(
+                re.search(r'<label>enkelvoud</label>', block) and
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                for block in paradigm_blocks
+            )
+
+            if is_plural and not is_also_singular:
+                article = 'de'
+                gender = None
+                print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+
+            # Invariant naamwoord (bijv. chassis): per-blok zowel enkelvoud als meervoud
+            if is_meervoud_in_block and is_also_singular and entries:
                 entries.append({
                     'display': 'znw.',
                     'article': None,
