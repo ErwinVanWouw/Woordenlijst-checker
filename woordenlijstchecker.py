@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -443,19 +443,46 @@ def check_word_online(word):
             # Sla alle entries op in word_info
             word_info = {'entries': entries} if entries else None
 
-            # Meervoudsvorm zonder enkelvoud → altijd 'de'
-            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
-            if re.search(plural_pattern, xml_content, re.DOTALL):
-                paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
-                is_also_singular = any(
-                    re.search(r'<label>enkelvoud</label>', block) and
-                    re.search(r'<wordform>' + re.escape(word_normalized) + r'</wordform>', block)
-                    for block in paradigm_blocks
-                )
-                if not is_also_singular:
-                    article = 'de'
-                    gender = None
-                    print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+            # Meervoud-detectie (case-insensitief: API retourneert altijd kleine letters)
+            wn_lower = re.escape(word_normalized.lower())
+            paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
+
+            # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
+            is_plural = bool(re.search(
+                r'<label>meervoud</label>.*?<wordform>' + wn_lower + r'</wordform>',
+                xml_content, re.DOTALL
+            ))
+
+            # Per-blok: woord als meervoud binnen één paradigmablock (voor invariant naamwoord)
+            is_meervoud_in_block = any(
+                re.search(r'<label>meervoud</label>', block) and
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                for block in paradigm_blocks
+            )
+
+            # Per-blok: woord ook als enkelvoud binnen één paradigmablock
+            is_also_singular = any(
+                re.search(r'<label>enkelvoud</label>', block) and
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                for block in paradigm_blocks
+            )
+
+            if is_plural and not is_also_singular:
+                article = 'de'
+                gender = None
+                print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+
+            # Invariant naamwoord (bijv. chassis): per-blok zowel enkelvoud als meervoud
+            if is_meervoud_in_block and is_also_singular and entries:
+                entries.append({
+                    'display': 'znw.',
+                    'article': None,
+                    'gender': None,
+                    'lemma': entries[0].get('lemma', word_normalized),
+                    'is_meervoud': True,
+                })
+                word_info = {'entries': entries}
+                print(f"[Info] Invariant naamwoord - ook meervoud toegevoegd")
 
             # Finale output
             if entries:
@@ -1376,13 +1403,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         no_button.pack(side='left', padx=5)
 
         # Focus
-        if show_entry:
-            def _focus_entry():
-                entry_widget.focus_force()
-                entry_widget.select_range(0, 'end')
-            dialog.after(100, _focus_entry)
-        else:
-            dialog.after(100, lambda: no_button.focus_force())
+        dialog.after(100, lambda: no_button.focus_force())
 
         # Bindings
         no_button.bind('<Return>', lambda e: no_action())
