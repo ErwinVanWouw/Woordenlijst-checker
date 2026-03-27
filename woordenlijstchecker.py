@@ -1376,13 +1376,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         no_button.pack(side='left', padx=5)
 
         # Focus
-        if show_entry:
-            def _focus_entry():
-                entry_widget.focus_force()
-                entry_widget.select_range(0, 'end')
-            dialog.after(100, _focus_entry)
-        else:
-            dialog.after(100, lambda: no_button.focus_force())
+        dialog.after(100, lambda: no_button.focus_force())
 
         # Bindings
         no_button.bind('<Return>', lambda e: no_action())
