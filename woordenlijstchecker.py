@@ -443,19 +443,34 @@ def check_word_online(word):
             # Sla alle entries op in word_info
             word_info = {'entries': entries} if entries else None
 
-            # Meervoudsvorm zonder enkelvoud → altijd 'de'
-            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
+            # Meervoud-detectie (case-insensitief: API retourneert altijd kleine letters)
+            is_plural = False
+            is_also_singular = False
+            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized.lower()) + r'</wordform>'
             if re.search(plural_pattern, xml_content, re.DOTALL):
+                is_plural = True
                 paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
                 is_also_singular = any(
                     re.search(r'<label>enkelvoud</label>', block) and
-                    re.search(r'<wordform>' + re.escape(word_normalized) + r'</wordform>', block)
+                    re.search(r'<wordform>' + re.escape(word_normalized.lower()) + r'</wordform>', block)
                     for block in paradigm_blocks
                 )
                 if not is_also_singular:
                     article = 'de'
                     gender = None
                     print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+
+            # Invariant naamwoord (bijv. chassis): zowel enkelvoud als meervoud → voeg meervoud-entry toe
+            if is_plural and is_also_singular and entries:
+                entries.append({
+                    'display': 'znw.',
+                    'article': None,
+                    'gender': None,
+                    'lemma': entries[0].get('lemma', word_normalized),
+                    'is_meervoud': True,
+                })
+                word_info = {'entries': entries}
+                print(f"[Info] Invariant naamwoord - ook meervoud toegevoegd")
 
             # Finale output
             if entries:

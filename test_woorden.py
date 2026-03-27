@@ -177,17 +177,30 @@ def check_word_online(word):
 
             word_info = {'entries': entries} if entries else None
 
-            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized) + r'</wordform>'
+            is_plural = False
+            is_also_singular = False
+            plural_pattern = r'<label>meervoud</label>.*?<wordform>' + re.escape(word_normalized.lower()) + r'</wordform>'
             if re.search(plural_pattern, xml_content, re.DOTALL):
+                is_plural = True
                 paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
                 is_also_singular = any(
                     re.search(r'<label>enkelvoud</label>', block) and
-                    re.search(r'<wordform>' + re.escape(word_normalized) + r'</wordform>', block)
+                    re.search(r'<wordform>' + re.escape(word_normalized.lower()) + r'</wordform>', block)
                     for block in paradigm_blocks
                 )
                 if not is_also_singular:
                     article = 'de'
                     gender = None
+
+            if is_plural and is_also_singular and entries:
+                entries.append({
+                    'display': 'znw.',
+                    'article': None,
+                    'gender': None,
+                    'lemma': entries[0].get('lemma', word_normalized),
+                    'is_meervoud': True,
+                })
+                word_info = {'entries': entries}
 
             if word_normalized in lemmas:
                 return True, word, None, article, word_info, gender, gender_info_list
@@ -379,6 +392,12 @@ TESTWOORDEN = [
     'vrouw', 'man', 'kind', 'kinderen',
     'harken', 'bal', 'deksel', 'aas',
     'weegschaal', 'Weegschaal',
+
+    # --- Ronde 4b: invariante naamwoorden (enkelvoud = meervoud) ---
+    'chassis', 'Chassis',
+
+    # --- Ronde 4c: meervoud met beginhoofdletter ---
+    'features', 'Features',
 
     # --- Ronde 5: apostrof-varianten ---
     "taxi\u2019s",   # rechts typografisch (')
