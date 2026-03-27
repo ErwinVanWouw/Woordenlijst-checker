@@ -17,7 +17,13 @@ Structuur van het Excel-bestand:
 
 import os
 import sys
-import openpyxl
+
+try:
+    import openpyxl
+except ImportError:
+    print("[Fout] openpyxl is niet geïnstalleerd.")
+    print("       Voer uit: pip install openpyxl")
+    sys.exit(1)
 
 # Importeer gedeelde logica uit test_woorden.py (synchroon houden met woordenlijstchecker.py)
 from test_woorden import check_word_online, normaliseer_apostrof
