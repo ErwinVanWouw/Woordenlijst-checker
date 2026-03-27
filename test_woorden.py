@@ -399,6 +399,9 @@ TESTWOORDEN = [
     # --- Ronde 4c: meervoud met beginhoofdletter ---
     'features', 'Features',
 
+    # --- Ronde 4d: tussenwerpsel ---
+    'goedemorgen',
+
     # --- Ronde 5: apostrof-varianten ---
     "taxi\u2019s",   # rechts typografisch (')
     "taxi\u2018s",   # links typografisch (')
