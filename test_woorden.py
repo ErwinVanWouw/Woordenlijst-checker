@@ -199,7 +199,8 @@ def check_word_online(word):
                 article = 'de'
                 gender = None
 
-            if is_meervoud_in_block and is_also_singular and entries:
+            already_has_meervoud = any(e.get('is_meervoud') for e in entries)
+            if is_meervoud_in_block and is_also_singular and entries and not already_has_meervoud:
                 entries.append({
                     'display': 'znw.',
                     'article': None,
@@ -406,7 +407,13 @@ TESTWOORDEN = [
     # --- Ronde 4c: meervoud met beginhoofdletter ---
     'features', 'Features',
 
-    # --- Ronde 4d: tussenwerpsel ---
+    # --- Ronde 4d: meervoud + enkelvoud + werkwoord (homoniemen) ---
+    'kussen', 'Kussen',
+
+    # --- Ronde 4e: enkelvoud met beginhoofdletter (normalisatie) ---
+    'liniaal', 'Liniaal',
+
+    # --- Ronde 4f: tussenwerpsel ---
     'goedemorgen',
 
     # --- Ronde 5: apostrof-varianten ---

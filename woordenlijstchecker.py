@@ -473,7 +473,9 @@ def check_word_online(word):
                 print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
 
             # Invariant naamwoord (bijv. chassis): per-blok zowel enkelvoud als meervoud
-            if is_meervoud_in_block and is_also_singular and entries:
+            # Niet toevoegen als er al een meervoud-entry is (bijv. 'kussen' = mv. van 'kus')
+            already_has_meervoud = any(e.get('is_meervoud') for e in entries)
+            if is_meervoud_in_block and is_also_singular and entries and not already_has_meervoud:
                 entries.append({
                     'display': 'znw.',
                     'article': None,
@@ -1048,10 +1050,15 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         # Bepaal pop-upgrootte op basis van inhoud
         entries = word_info.get('entries', []) if word_info else []
 
+        # Normaliseer beginhoofdletter naar onderkast voor weergave.
+        # Echte hoofdletters (NMa, CdK) hebben interne hoofdletters en worden niet aangepast.
+        _is_sentence_caps = len(word) > 1 and word[0].isupper() and word[1:].islower()
+        display_word = word.lower() if _is_sentence_caps else word
+
         def _entry_display_word(e):
             """Geeft het te tonen woord terug: lemma als dat alleen in beginkapitaal afwijkt."""
             lm = e.get('lemma', word)
-            return lm if (lm and lm.lower() == word.lower()) else word
+            return lm if (lm and lm.lower() == word.lower()) else display_word
 
         def _entry_display_len(e):
             dw = _entry_display_word(e)
@@ -1071,18 +1078,18 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             max_line_len = max(_entry_display_len(e) for e in entries)
         elif article:
             popup_height = 160
-            first_line = (f"'{word}'  {article} ({gender})" if gender
-                          else f"'{word}'  {article}")
+            first_line = (f"'{display_word}'  {article} ({gender})" if gender
+                          else f"'{display_word}'  {article}")
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
             popup_height = 160
             disp0 = entries[0].get('display') if entries else None
             if entries and entries[0].get('is_meervoud'):
-                first_line = f"'{word}'  {disp0} mv."
+                first_line = f"'{display_word}'  {disp0} mv."
             elif disp0:
-                first_line = f"'{word}'  {disp0}"
+                first_line = f"'{display_word}'  {disp0}"
             else:
-                first_line = f"'{word}'"
+                first_line = f"'{display_word}'"
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
 
         # Bereken benodigde breedte op basis van tekstlengte
@@ -1155,9 +1162,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             first_line_frame = tk.Frame(text_frame, bg='white')
             first_line_frame.pack(anchor='w')
 
-            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+            word_lbl = tk.Label(first_line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
             word_lbl.pack(side='left')
-            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
             tk.Label(first_line_frame, text=f"  {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
@@ -1172,9 +1179,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             first_line_frame = tk.Frame(text_frame, bg='white')
             first_line_frame.pack(anchor='w')
 
-            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+            word_lbl = tk.Label(first_line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
             word_lbl.pack(side='left')
-            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
 
             disp = entry.get('display') or ''
             if disp:
@@ -1189,9 +1196,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
             first_line_frame = tk.Frame(text_frame, bg='white')
             first_line_frame.pack(anchor='w')
-            word_lbl = tk.Label(first_line_frame, text=f"'{word}'", font=("Arial", 12), bg='white')
+            word_lbl = tk.Label(first_line_frame, text=f"'{display_word}'", font=("Arial", 12), bg='white')
             word_lbl.pack(side='left')
-            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(word)}"))
+            word_labels.append((word_lbl, f"https://woordenlijst.org/zoeken/?q={quote(display_word)}"))
 
             if entries and entries[0].get('is_meervoud'):
                 disp0 = entries[0].get('display', 'znw.')
