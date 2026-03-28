@@ -904,16 +904,47 @@ def controleer_op_updates():
         if nieuwste == VERSION:
             bericht = f"U gebruikt de nieuwste versie ({VERSION})."
             titel = "Geen updates beschikbaar"
+            def _toon():
+                ouder = tk.Toplevel(_popup_root)
+                ouder.withdraw()
+                ouder.attributes('-topmost', True)
+                messagebox.showinfo(titel, bericht, parent=ouder)
+                ouder.destroy()
+            _popup_root.after(0, _toon)
         else:
-            bericht = f"Er is een nieuwe versie beschikbaar: {nieuwste}\n(u heeft versie {VERSION})"
-            titel = "Update beschikbaar"
-        def _toon():
-            ouder = tk.Toplevel(_popup_root)
-            ouder.withdraw()
-            ouder.attributes('-topmost', True)
-            messagebox.showinfo(titel, bericht, parent=ouder)
-            ouder.destroy()
-        _popup_root.after(0, _toon)
+            RELEASES_URL = "https://github.com/ErwinVanWouw/Woordenlijst-checker/releases"
+            def _toon():
+                popup = tk.Toplevel(_popup_root)
+                popup.title("Update beschikbaar")
+                popup.configure(bg='white')
+                popup.resizable(False, False)
+                popup.attributes('-topmost', True)
+                _set_icon(popup)
+
+                frame = tk.Frame(popup, bg='white', padx=20, pady=16)
+                frame.pack(fill='both', expand=True)
+
+                tk.Label(frame,
+                         text=f"Er is een nieuwe versie beschikbaar: {nieuwste}",
+                         font=("Arial", 11), bg='white').pack(anchor='w')
+                tk.Label(frame,
+                         text=f"U heeft versie {VERSION}.",
+                         font=("Arial", 11), bg='white').pack(anchor='w', pady=(2, 10))
+
+                link = tk.Label(frame, text="Download van GitHub Releases",
+                                font=("Arial", 11, "underline"), fg='blue',
+                                cursor='hand2', bg='white')
+                link.pack(anchor='w')
+                link.bind('<Button-1>', lambda e: os.startfile(RELEASES_URL))
+
+                tk.Button(frame, text="Sluiten", command=popup.destroy,
+                          font=("Arial", 10)).pack(anchor='e', pady=(14, 0))
+
+                popup.update_idletasks()
+                w, h = popup.winfo_reqwidth(), popup.winfo_reqheight()
+                x, y = get_center_position(w, h)
+                popup.geometry(f"{w}x{h}+{x}+{y}")
+            _popup_root.after(0, _toon)
     except Exception as e:
         print(f"[Fout] Updatecontrole mislukt: {e}")
         def _toon_fout():
