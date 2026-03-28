@@ -901,7 +901,13 @@ def controleer_op_updates():
         response = requests.get(UPDATE_CHECK_URL, timeout=5)
         response.raise_for_status()
         nieuwste = response.text.strip()
-        if nieuwste == VERSION:
+        try:
+            nieuwste_tuple = tuple(int(x) for x in nieuwste.split('.'))
+            huidig_tuple  = tuple(int(x) for x in VERSION.split('.'))
+        except ValueError:
+            nieuwste_tuple = (0,)
+            huidig_tuple   = (1,)
+        if nieuwste_tuple <= huidig_tuple:
             bericht = f"U gebruikt de nieuwste versie ({VERSION})."
             titel = "Geen updates beschikbaar"
             def _toon():
