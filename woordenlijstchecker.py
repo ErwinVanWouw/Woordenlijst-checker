@@ -345,6 +345,17 @@ def _extract_woordsoort_entries(xml, word):
                         article = 'de'
                     gender = genus_core if genus_core else None
                     display = "zelfstandig naamwoord"
+                elif mapping == 'zelfstandignaamwoordgroep':
+                    display = mapping
+                    # Genus uit lemma_part_of_speech (bijv. NOU-C(gender=f,number=sg))
+                    pos_m = re.search(r'<lemma_part_of_speech>(.*?)</lemma_part_of_speech>', clean_block)
+                    lemma_pos = pos_m.group(1) if pos_m else ''
+                    gc_m = re.search(r'gender=([^,)]+)', lemma_pos)
+                    if gc_m:
+                        _G = {'f': 'v', 'm': 'm', 'n': 'o'}
+                        gc = gc_m.group(1)
+                        gender = '/'.join(_G.get(c, c) for c in gc.split('/'))
+                        article = 'het' if gender == 'o' else ('de/het' if 'o' in gender else 'de')
                 elif mapping == 'RAW':
                     display = label
                 else:
