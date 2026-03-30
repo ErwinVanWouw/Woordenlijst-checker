@@ -482,6 +482,10 @@ def check_word_online(word):
                 article = 'de'
                 gender = None
                 print(f"[Info] Meervoudsvorm - lidwoord is altijd 'de'")
+                # Markeer znw. groep-entries ook als meervoud (bijv. 'happy few', 'ins en outs')
+                for e in entries:
+                    if e.get('display') == 'znw. groep':
+                        e['is_meervoud'] = True
 
             # Invariant naamwoord (bijv. chassis): per-blok zowel enkelvoud als meervoud
             # Niet toevoegen als er al een meervoud-entry is (bijv. 'kussen' = mv. van 'kus')

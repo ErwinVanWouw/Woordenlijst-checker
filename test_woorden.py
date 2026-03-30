@@ -209,6 +209,9 @@ def check_word_online(word):
             if is_plural and not is_also_singular:
                 article = 'de'
                 gender = None
+                for e in entries:
+                    if e.get('display') == 'znw. groep':
+                        e['is_meervoud'] = True
 
             already_has_meervoud = any(e.get('is_meervoud') for e in entries)
             if is_meervoud_in_block and is_also_singular and entries and not already_has_meervoud:
@@ -415,16 +418,19 @@ TESTWOORDEN = [
     # --- Ronde 4b: invariante naamwoorden (enkelvoud = meervoud) ---
     'chassis', 'Chassis',
 
-    # --- Ronde 4c: meervoud met beginhoofdletter ---
+    # --- Ronde 4c: zelfstandignaamwoordgroep meervoud ---
+    'happy few', 'ins en outs',
+
+    # --- Ronde 4d: meervoud met beginhoofdletter ---
     'features', 'Features',
 
-    # --- Ronde 4d: meervoud + enkelvoud + werkwoord (homoniemen) ---
+    # --- Ronde 4e: meervoud + enkelvoud + werkwoord (homoniemen) ---
     'kussen', 'Kussen',
 
-    # --- Ronde 4e: enkelvoud met beginhoofdletter (normalisatie) ---
+    # --- Ronde 4f: enkelvoud met beginhoofdletter (normalisatie) ---
     'liniaal', 'Liniaal',
 
-    # --- Ronde 4f: tussenwerpsel ---
+    # --- Ronde 4g: tussenwerpsel ---
     'goedemorgen',
 
     # --- Ronde 5: apostrof-varianten ---

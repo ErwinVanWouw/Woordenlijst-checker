@@ -92,7 +92,8 @@ def laad_verwachtingen(pad):
 def effectieve_label(entry):
     """Bereken het weergavelabel zoals de popup dat toont."""
     if entry.get('is_meervoud'):
-        return 'znw. mv.'
+        disp = entry.get('display', 'znw.')
+        return f'{disp} mv.'
     return entry.get('display', '')
 
 
