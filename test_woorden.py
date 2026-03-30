@@ -103,6 +103,17 @@ def _extract_woordsoort_entries(xml, word):
                         article = 'de'
                     gender = genus_core if genus_core else None
                     display = "zelfstandig naamwoord"
+                elif mapping == 'zelfstandignaamwoordgroep':
+                    display = mapping
+                    # Genus uit lemma_part_of_speech (bijv. NOU-C(gender=f,number=sg))
+                    pos_m = re.search(r'<lemma_part_of_speech>(.*?)</lemma_part_of_speech>', clean_block)
+                    lemma_pos = pos_m.group(1) if pos_m else ''
+                    gc_m = re.search(r'gender=([^,)]+)', lemma_pos)
+                    if gc_m:
+                        _G = {'f': 'v', 'm': 'm', 'n': 'o'}
+                        gc = gc_m.group(1)
+                        gender = '/'.join(_G.get(c, c) for c in gc.split('/'))
+                        article = 'het' if gender == 'o' else ('de/het' if 'o' in gender else 'de')
                 elif mapping == 'RAW':
                     display = label
                 else:
@@ -126,7 +137,7 @@ def _extract_woordsoort_entries(xml, word):
             display = re.sub(r'\s*\(.*\)$', '', display).strip()
 
         is_meervoud = (display == 'znw.' and entry_lemma.lower() != word.lower())
-        dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}"
+        dedup_key = "znw.|mv." if is_meervoud else f"{display}|{article}|{gender}|{entry_lemma}"
         if dedup_key in seen_displays:
             continue
         seen_displays.add(dedup_key)
@@ -204,7 +215,7 @@ def check_word_online(word):
                 entries.append({
                     'display': 'znw.',
                     'article': None,
-                    'gender': None,
+                    'gender': entries[0].get('gender'),
                     'lemma': entries[0].get('lemma', word_normalized),
                     'is_meervoud': True,
                 })
