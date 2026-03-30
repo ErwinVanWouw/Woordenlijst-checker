@@ -490,7 +490,7 @@ def check_word_online(word):
                 entries.append({
                     'display': 'znw.',
                     'article': None,
-                    'gender': None,
+                    'gender': entries[0].get('gender'),
                     'lemma': entries[0].get('lemma', word_normalized),
                     'is_meervoud': True,
                 })
@@ -1112,7 +1112,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             dw = _entry_display_word(e)
             disp = e.get('display', '')
             if e.get('is_meervoud'):
-                return len(f"'{dw}'  {disp} mv.")
+                g = e.get('gender')
+                suffix = f" ({g})" if g else ""
+                return len(f"'{dw}'  {disp} mv.{suffix}")
             elif e.get('article') and e.get('gender'):
                 return len(f"'{dw}'  {e['article']} ({e['gender']})")
             elif e.get('article'):
@@ -1124,20 +1126,23 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
             max_line_len = max(_entry_display_len(e) for e in entries)
-        elif article:
-            popup_height = 160
-            first_line = (f"'{display_word}'  {article} ({gender})" if gender
-                          else f"'{display_word}'  {article}")
-            max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         else:
             popup_height = 160
-            disp0 = entries[0].get('display') if entries else None
-            if entries and entries[0].get('is_meervoud'):
-                first_line = f"'{display_word}'  {disp0} mv."
-            elif disp0:
-                first_line = f"'{display_word}'  {disp0}"
+            entry0 = entries[0] if entries else None
+            if entry0 and entry0.get('is_meervoud'):
+                disp0 = entry0.get('display', 'znw.')
+                g = entry0.get('gender')
+                suffix = f" ({g})" if g else ""
+                first_line = f"'{display_word}'  {disp0} mv.{suffix}"
+            elif entry0 and entry0.get('display') and not entry0.get('article'):
+                # znw. groep zonder gender, of display-only entry (ww., bw., etc.)
+                first_line = f"'{display_word}'  {entry0['display']}"
+            elif article:
+                first_line = (f"'{display_word}'  {article} ({gender})" if gender
+                              else f"'{display_word}'  {article}")
             else:
-                first_line = f"'{display_word}'"
+                disp0 = entry0.get('display') if entry0 else None
+                first_line = f"'{display_word}'  {disp0}" if disp0 else f"'{display_word}'"
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
 
         # Bereken benodigde breedte op basis van tekstlengte
@@ -1187,7 +1192,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 disp = entry.get('display', '')
                 if entry.get('is_meervoud'):
                     # Meervoudsvorm van naamwoord
-                    tk.Label(line_frame, text=f"  {disp} mv.", font=("Arial", 12), bg='white').pack(side='left')
+                    g = entry.get('gender')
+                    suffix = f" ({g})" if g else ""
+                    tk.Label(line_frame, text=f"  {disp} mv.{suffix}", font=("Arial", 12), bg='white').pack(side='left')
                 elif entry.get('article') and entry.get('gender'):
                     # Enkelvoudig naamwoord met geslacht — 'znw.' weglaten, lidwoord+gender volstaat
                     tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
@@ -1250,8 +1257,11 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
             if entries and entries[0].get('is_meervoud'):
                 disp0 = entries[0].get('display', 'znw.')
-                tk.Label(first_line_frame, text=f"  {disp0} mv.", font=("Arial", 12), bg='white').pack(side='left')
-            elif entries and entries[0].get('display') and not article:
+                g = entries[0].get('gender')
+                suffix = f" ({g})" if g else ""
+                tk.Label(first_line_frame, text=f"  {disp0} mv.{suffix}", font=("Arial", 12), bg='white').pack(side='left')
+            elif entries and entries[0].get('display') and not entries[0].get('article'):
+                # znw. groep zonder gender: toon alleen display-label (geen lidwoord)
                 tk.Label(first_line_frame, text=f"  {entries[0]['display']}", font=("Arial", 12), bg='white').pack(side='left')
             elif article:
                 tk.Label(first_line_frame, text=f"  ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
