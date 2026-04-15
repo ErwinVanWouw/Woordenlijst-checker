@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5.1) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5.5) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -17,13 +17,14 @@ This file provides guidance for AI assistants working in this repository.
 
 ```
 Woordenlijst-checker/
-├── woordenlijstchecker.py   # Entire application — ~1570 lines, single file
+├── woordenlijstchecker.py   # Entire application — ~1668 lines, single file
 ├── README.md                # End-user documentation
 ├── LICENSE                  # GNU GPLv3
 ├── over.md                  # App info shown in the "Over" popup (supports markdown links)
 ├── version.txt              # Current version number (used for update checks)
 ├── version_info.txt         # PyInstaller Windows version metadata (VERSIONINFO resource)
 ├── test_woorden.py          # CLI tester for problematic input words (no GUI, no hotkey)
+├── verificatie_woorden.py   # Automated verifier comparing app output against Excel expectations
 └── config.ini               # Auto-generated at runtime (NOT in repo)
 ```
 
@@ -83,6 +84,7 @@ The application runs as a system tray icon (via `pystray`) with the following me
 | Function | Purpose |
 |---|---|
 | `check_word_online(word)` | Main business logic — queries the API, parses XML, returns 7-tuple |
+| `_extract_woordsoort_entries(found_lemmata_block)` | Parses a single `<found_lemmata>` block and returns a list of entry dicts with `display`, `article`, `gender`, `lemma`, and optionally `is_meervoud` |
 | `get_spelling_suggestions(word)` | Calls the spellcheck endpoint; returns up to 3 suggestions as a string |
 | `check_prisma_alternatief(word)` | Queries `spelling.prisma.nl` for alternative (white-list) spellings; returns `(alt_word, officiele_spelling, url)` or `None` |
 
@@ -101,7 +103,7 @@ The application runs as a system tray icon (via `pystray`) with the following me
 | `show_help_popup()` | Help dialog — reads and displays `README.md` with inline link rendering |
 | `show_config_popup()` | Settings dialog — lets user change hotkey and reset popup position |
 | `show_invoerfilter_popup(word, reden)` | Warning dialog shown when input is filtered (e.g. too short, non-word) |
-| `controleer_op_updates()` | Fetches `version.txt` via `UPDATE_CHECK_URL`; shows result dialog |
+| `controleer_op_updates()` | Fetches `version.txt` via `UPDATE_CHECK_URL`; compares version tuples (not strings); shows custom popup with a clickable link to the GitHub Releases page when an update is available |
 
 ### Helper Functions
 | Function | Purpose |
@@ -210,21 +212,25 @@ The distributed `.exe` bundles all dependencies via PyInstaller (referenced by `
 
 Understanding the checking logic is essential before modifying `check_word_online`:
 
-1. **Apostrophe normalization**: Typographic apostrophes (`'`, `` ` ``, `´`, `ʼ`) are normalized to straight apostrophes (`'`) before API queries.
+1. **Typographic character normalization**: Before the input filter runs, `perform_check()` normalizes typographic hyphens (U+00AD, U+2010–U+2013) to plain hyphens (`-`) and special spaces (U+00A0, U+202F, U+2009) to plain spaces. This prevents false "invalid characters" warnings when text is pasted from Word, InDesign, or web pages.
 
-2. **Lemma vs. wordform**: A word is valid if it appears as a `<lemma>` (preferred) or as a `<wordform>` under certain conditions.
+2. **Apostrophe normalization**: Typographic apostrophes (`'`, `` ` ``, `´`, `ʼ`) are normalized to straight apostrophes (`'`) before API queries.
 
-3. **Internal capitals (strict mode)**: Words where the API returns lemmas with internal uppercase letters (e.g., compound proper nouns) are validated strictly — the input capitalization must exactly match the lemma's capitalization pattern.
+3. **Lemma vs. wordform**: A word is valid if it appears as a `<lemma>` (preferred) or as a `<wordform>` under certain conditions.
 
-4. **Case-sensitive lemmas** (e.g., `pH`, `mkb`): If the lowercase variant of the input matches a lemma but with different casing, an error is returned with the correct form suggested.
+4. **Internal capitals (strict mode)**: Words where the API returns lemmas with internal uppercase letters (e.g., compound proper nouns) are validated strictly — the input capitalization must exactly match the lemma's capitalization pattern.
 
-5. **Sentence-initial capitals**: A word like `Fiets` (first letter uppercase, rest lowercase) is accepted if its lowercase form exists in the database.
+5. **Case-sensitive lemmas** (e.g., `pH`, `mkb`): If the lowercase variant of the input matches a lemma but with different casing, an error is returned with the correct form suggested.
 
-6. **Plural nouns**: Words found only as `<label>meervoud</label>` (plural) always get article `de`; their singular lemma may be shown for reference.
+6. **Sentence-initial capitals**: A word like `Fiets` (first letter uppercase, rest lowercase) is accepted and shown in lowercase in the popup — **unless** the primary lemma itself starts with a capital (e.g. `Excelfile`), in which case the original capitalisation is preserved.
 
-7. **Homonyms**: When multiple lemma entries are found for the same word, `gender_info_list` is populated as a list of dicts and the popup renders each variant on a separate line. Each entry carries its own `lemma` key so that differing capitalisations (e.g. `weegschaal` vs. `Weegschaal`) are displayed correctly via `_entry_display_word()`.
+7. **Plural nouns**: Words found only as `<label>meervoud</label>` (plural) always get article `de`. Gender from the underlying singular lemma is propagated to the plural entry and shown in the popup as `znw. mv. (m)`, `znw. mv. (o)`, etc.
 
-8. **Part-of-speech abbreviations**: Each entry is mapped to a short Dutch label (e.g. *znw.*, *bnw.*, *ww.*, *vnw.*, *naam*) via the `WOORDSOORT_PREFIXES` lookup table. Noun entries for plain singular nouns omit the *znw.* prefix to keep the popup clean.
+8. **Word groups** (`znw. groep`): Multi-word noun-group entries (e.g. *ziekte van Parkinson*, *ins en outs*) are extracted and displayed with their own article and gender where available. Plural word groups are marked with `is_meervoud=True` and displayed as `znw. groep mv.` with no article.
+
+9. **Homonyms**: When multiple lemma entries are found for the same word, `gender_info_list` is populated as a list of dicts and the popup renders each variant on a separate line. Each entry carries its own `lemma` key so that differing capitalisations (e.g. `weegschaal` vs. `Weegschaal`) are displayed correctly via `_entry_display_word()`.
+
+10. **Part-of-speech abbreviations**: Each entry is mapped to a short Dutch label (e.g. *znw.*, *bnw.*, *ww.*, *vnw.*, *naam*, *znw. groep*) via the `WOORDSOORT_PREFIXES` lookup table. Noun entries for plain singular nouns omit the *znw.* prefix to keep the popup clean.
 
 ---
 
@@ -239,8 +245,10 @@ Dutch nouns have grammatical gender. The code extracts this from `lemma_part_of_
 | `n` | het | o |
 | `c` (common) | de | m/v |
 | `m` + `f` combined | de | m/v |
-| plural | de | (none shown) |
+| plural | de | propagated from singular entry, shown as e.g. `znw. mv. (o)` |
 | proper noun (`NOU-P`) | de | *naam* (no gender shown) |
+| `znw. groep` singular | de / het | shown when available |
+| `znw. groep` plural | — | no article; shown as `znw. groep mv.` |
 
 ---
 
@@ -288,6 +296,22 @@ python test_woorden.py
 ```
 
 Most functions depend on tkinter GUI, live network access, or the system clipboard — integration/manual testing remains the primary validation method.
+
+---
+
+## Release Notes
+
+### v1.5.5
+- Normalize typographic hyphens (non-breaking, soft, en-dash variants) and special spaces (non-breaking, narrow no-break, thin) to their plain equivalents before the input filter runs — prevents false "invalid characters" warnings when pasting from Word, InDesign, or web browsers.
+
+### v1.5.4
+- **Gender on plural nouns**: gender is now propagated from the singular lemma entry to its plural and shown in the popup — e.g. `znw. mv. (o)` for a neuter noun.
+- **Word groups** (`znw. groep`): singular groups (e.g. *ziekte van Parkinson*) now show the correct article and gender extracted from `<lemma_part_of_speech>`; plural groups (e.g. *ins en outs*, *happy few*) are shown as `znw. groep mv.` without an article.
+- **Capitalised lemmas** (e.g. *Excelfile*): words whose primary lemma is itself capitalised are no longer lowercased in the popup; the sentence-initial-capital normalisation now checks the lemma before lowercasing.
+
+### v1.5.3
+- **Update check**: version comparison now uses integer tuples instead of string equality, preventing false "new version" notifications (e.g. remote 1.5.2 no longer appears newer than local 1.5.3).
+- **Update notification popup**: the "new version available" dialog now includes a clickable link directly to the GitHub Releases page.
 
 ---
 
