@@ -1102,9 +1102,13 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         # Bepaal pop-upgrootte op basis van inhoud
         entries = word_info.get('entries', []) if word_info else []
 
-        # Normaliseer beginhoofdletter naar onderkast voor weergave.
-        # Echte hoofdletters (NMa, CdK) hebben interne hoofdletters en worden niet aangepast.
-        _is_sentence_caps = len(word) > 1 and word[0].isupper() and word[1:].islower()
+        # Normaliseer beginhoofdletter naar onderkast voor weergave, maar alleen als
+        # het lemma in de woordenlijst zelf ook met een onderkastletter begint.
+        # Woorden als 'Excelfile' hebben een echt hoofdletter-lemma en worden niet aangepast.
+        # Woorden met interne hoofdletters (NMa, CdK) vallen al buiten de is_sentence_caps-check.
+        primary_lemma = entries[0].get('lemma', '') if entries else ''
+        _is_sentence_caps = (len(word) > 1 and word[0].isupper() and word[1:].islower()
+                             and not (primary_lemma and primary_lemma[0].isupper()))
         display_word = word.lower() if _is_sentence_caps else word
 
         def _entry_display_word(e):
