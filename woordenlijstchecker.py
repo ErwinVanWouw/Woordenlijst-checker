@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5.4"
+VERSION = "1.5.5"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -1102,9 +1102,13 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         # Bepaal pop-upgrootte op basis van inhoud
         entries = word_info.get('entries', []) if word_info else []
 
-        # Normaliseer beginhoofdletter naar onderkast voor weergave.
-        # Echte hoofdletters (NMa, CdK) hebben interne hoofdletters en worden niet aangepast.
-        _is_sentence_caps = len(word) > 1 and word[0].isupper() and word[1:].islower()
+        # Normaliseer beginhoofdletter naar onderkast voor weergave, maar alleen als
+        # het lemma in de woordenlijst zelf ook met een onderkastletter begint.
+        # Woorden als 'Excelfile' hebben een echt hoofdletter-lemma en worden niet aangepast.
+        # Woorden met interne hoofdletters (NMa, CdK) vallen al buiten de is_sentence_caps-check.
+        primary_lemma = entries[0].get('lemma', '') if entries else ''
+        _is_sentence_caps = (len(word) > 1 and word[0].isupper() and word[1:].islower()
+                             and not (primary_lemma and primary_lemma[0].isupper()))
         display_word = word.lower() if _is_sentence_caps else word
 
         def _entry_display_word(e):
@@ -1587,6 +1591,10 @@ def perform_check():
     if selected_word_norm != selected_word:
         print(f"[Info] Apostrof genormaliseerd: '{selected_word}' → '{selected_word_norm}'")
         selected_word = selected_word_norm
+
+    # Normaliseer typografische streepjes en speciale spaties
+    selected_word = re.sub(r"[\u00AD\u2010\u2011\u2012\u2013]", "-", selected_word)
+    selected_word = re.sub(r"[\u00A0\u202F\u2009]", " ", selected_word)
 
     # Controleer of invoer eruitziet als een geldig woord of woordgroep
     geldig, reden = is_geldig_invoer(selected_word)
