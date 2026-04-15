@@ -1592,6 +1592,10 @@ def perform_check():
         print(f"[Info] Apostrof genormaliseerd: '{selected_word}' → '{selected_word_norm}'")
         selected_word = selected_word_norm
 
+    # Normaliseer typografische streepjes en speciale spaties
+    selected_word = re.sub(r"[\u00AD\u2010\u2011\u2012\u2013]", "-", selected_word)
+    selected_word = re.sub(r"[\u00A0\u202F\u2009]", " ", selected_word)
+
     # Controleer of invoer eruitziet als een geldig woord of woordgroep
     geldig, reden = is_geldig_invoer(selected_word)
     if not geldig:
