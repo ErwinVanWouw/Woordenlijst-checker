@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5.5) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5.6) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -300,6 +300,9 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.5.6
+- **Deduplicate spelling suggestions**: when the spellcheck API returns the same correction multiple times (e.g. for multi-word input like *spoiler alerts*), duplicates are now collapsed so each suggestion appears only once. Order is preserved; the cap of 3 suggestions still applies after deduplication.
 
 ### v1.5.5
 - Normalize typographic hyphens (non-breaking, soft, en-dash variants) and special spaces (non-breaking, narrow no-break, thin) to their plain equivalents before the input filter runs — prevents false "invalid characters" warnings when pasting from Word, InDesign, or web browsers.
