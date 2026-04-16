@@ -643,8 +643,14 @@ def get_spelling_suggestions(word):
         if corrections_match:
             corrections = corrections_match.group(1)
             if corrections:
-                # Splits op | en maak het netjes
-                suggestions = [s.strip() for s in corrections.split('|')]
+                # Splits op | en maak het netjes; dedupliceer met behoud van volgorde
+                seen = set()
+                suggestions = []
+                for s in corrections.split('|'):
+                    s = s.strip()
+                    if s and s not in seen:
+                        seen.add(s)
+                        suggestions.append(s)
                 return ' / '.join(suggestions[:3])  # Max 3 suggesties
 
         # Als geen corrections, probeer best_guess
