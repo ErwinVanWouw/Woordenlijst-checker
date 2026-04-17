@@ -1373,17 +1373,12 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         _bind_drag_save(dialog)
 
         # Hoofdtekst
-        if show_entry:
-            main_text = "staat niet in Woordenlijst.org."
-        else:
-            main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
-        tk.Label(dialog, text=main_text, pady=10).pack()
+        tk.Label(dialog, text=f"'{word}'\nstaat niet in Woordenlijst.org.", pady=10).pack()
 
-        # Bewerkbaar invoervak met zoekknop
+        # Bewerkbaar invoervak met zoekknop (wordt later gepakt, na de suggesties)
         if show_entry:
             entry_var = tk.StringVar(value=word)
             entry_frame = tk.Frame(dialog)
-            entry_frame.pack(pady=(0, 8))
 
             entry_widget = tk.Entry(entry_frame, textvariable=entry_var, width=20, font=("Arial", 10))
             entry_widget.pack(side='left', padx=(0, 5))
@@ -1448,6 +1443,10 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             else:
                 # Normale foutmelding (zoals "Gebruik 'pH'")
                 tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
+
+        # Invoervak onder de suggesties tonen
+        if show_entry:
+            entry_frame.pack(pady=(0, 8))
 
         # Alternatieve witte spelling (Prisma)
         if alternatief_info:
