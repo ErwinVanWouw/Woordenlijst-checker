@@ -1373,11 +1373,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         _bind_drag_save(dialog)
 
         # Hoofdtekst
-        if show_entry:
-            main_text = "staat niet in Woordenlijst.org."
-        else:
-            main_text = f"'{word}'\nstaat niet in Woordenlijst.org."
-        tk.Label(dialog, text=main_text, pady=10).pack()
+        tk.Label(dialog, text=f"'{word}'\nstaat niet in Woordenlijst.org.", pady=10).pack()
 
         # Bewerkbaar invoervak met zoekknop
         if show_entry:
