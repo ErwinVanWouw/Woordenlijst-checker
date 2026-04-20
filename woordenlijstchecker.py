@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5.6"
+VERSION = "1.5.7"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -605,8 +605,10 @@ def check_word_online(word):
             # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
 
-            # Haal suggesties op via spellcheck API
+            # Haal suggesties op via spellcheck API; val terug op prefix-zoekopdracht
             suggestions = get_spelling_suggestions(word_normalized)
+            if not suggestions:
+                suggestions = get_prefix_suggestions(word_normalized)
 
             if suggestions:
                 error_msg = f"Bedoelde u: {suggestions}"
@@ -664,6 +666,38 @@ def get_spelling_suggestions(word):
 
     except Exception as e:
         print(f"[Waarschuwing] Kon geen suggesties ophalen: {e}")
+        return None
+
+
+def get_prefix_suggestions(word):
+    """Zoek samenstellingen via regex-prefix op find_wordform als fallback."""
+    try:
+        params = {
+            "database": "gig_pro_wrdlst",
+            "wordform": f"^{re.escape(word)}",
+            "paradigm": "false",
+            "diminutive": "false",
+            "onlyvalid": "true",
+            "regex": "true",
+            "dummy": str(int(time.time() * 1000))
+        }
+        response = requests.get(
+            "https://woordenlijst.org/MolexServe/lexicon/find_wordform",
+            params=params, timeout=4
+        )
+        response.raise_for_status()
+        lemmas = re.findall(r'<lemma>([^<]+)</lemma>', response.text)
+        seen = set()
+        unique = []
+        for lemma in lemmas:
+            if lemma.lower() != word.lower() and lemma not in seen:
+                seen.add(lemma)
+                unique.append(lemma)
+                if len(unique) == 3:
+                    break
+        return ' / '.join(unique) if unique else None
+    except Exception as e:
+        print(f"[Waarschuwing] Kon geen prefix-suggesties ophalen: {e}")
         return None
 
 # --- PRISMA ALTERNATIEVE SPELLING ---
