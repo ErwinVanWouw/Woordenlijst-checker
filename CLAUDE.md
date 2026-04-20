@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5.6) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5.7) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -300,6 +300,10 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.5.7
+- **Compound word suggestions**: when a word is not found and the spellcheck API returns no corrections, the app now falls back to a regex prefix search (`find_wordform` with `regex=true`). This surfaces compound words built on the input — e.g. searching *doe-het-zelf* now suggests *doe-het-zelfafdeling* and similar entries.
+- **Failure popup layout**: the word is now shown in the header of the "not found" dialog for both popup types, ensuring the message always has a clear subject and starts with a capital.
 
 ### v1.5.6
 - **Deduplicate spelling suggestions**: when the spellcheck API returns the same correction multiple times (e.g. for multi-word input like *spoiler alerts*), duplicates are now collapsed so each suggestion appears only once. Order is preserved; the cap of 3 suggestions still applies after deduplication.
