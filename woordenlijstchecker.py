@@ -1196,8 +1196,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             max_line_len = max(_entry_display_len(e) for e in entries)
         else:
             popup_height = 160
-        if varianten:
-            popup_height += 22
             entry0 = entries[0] if entries else None
             if entry0 and entry0.get('is_meervoud'):
                 disp0 = entry0.get('display', 'znw.')
@@ -1214,6 +1212,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 disp0 = entry0.get('display') if entry0 else None
                 first_line = f"'{display_word}'  {disp0}" if disp0 else f"'{display_word}'"
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
+        if varianten:
+            popup_height += 22
 
         # Bereken benodigde breedte op basis van tekstlengte
         estimated_width = max_line_len * 8 + 200
