@@ -183,7 +183,7 @@ def is_geldig_invoer(word):
         return False, "De geselecteerde tekst is te lang voor een woordcontrole."
     if not re.search(r'[a-zA-ZÀ-öø-ÿ]', word):
         return False, "De geselecteerde tekst bevat geen letters."
-    if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/\u00B9\u00B2\u00B3\u2070-\u2079\u2080-\u2089]+", word):
+    if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/\.\u00B9\u00B2\u00B3\u2070-\u2079\u2080-\u2089]+", word):
         return False, "De geselecteerde tekst bevat tekens die normaal niet in een Nederlands woord voorkomen."
     if len(re.findall(r'[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]', re.sub(r'[0-9]', '', word))) >= 2:
         return False, "De geselecteerde tekst lijkt camelCase te bevatten, wat geen normaal woordpatroon is."
