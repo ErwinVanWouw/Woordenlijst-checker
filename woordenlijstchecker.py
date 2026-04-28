@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5.7"
+VERSION = "1.5.8"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -183,7 +183,7 @@ def is_geldig_invoer(word):
         return False, "De geselecteerde tekst is te lang voor een woordcontrole."
     if not re.search(r'[a-zA-ZÀ-öø-ÿ]', word):
         return False, "De geselecteerde tekst bevat geen letters."
-    if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/\u00B9\u00B2\u00B3\u2070-\u2079\u2080-\u2089]+", word):
+    if not re.fullmatch(r"[a-zA-ZÀ-öø-ÿ0-9 \-'\/\.\u00B9\u00B2\u00B3\u2070-\u2079\u2080-\u2089]+", word):
         return False, "De geselecteerde tekst bevat tekens die normaal niet in een Nederlands woord voorkomen."
     if len(re.findall(r'[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]', re.sub(r'[0-9]', '', word))) >= 2:
         return False, "De geselecteerde tekst lijkt camelCase te bevatten, wat geen normaal woordpatroon is."
@@ -453,6 +453,24 @@ def check_word_online(word):
 
             # Sla alle entries op in word_info
             word_info = {'entries': entries} if entries else None
+
+            # Extraheer co-gelijke varianten uit <parent>-veld
+            found_lemmata_blocks = re.findall(
+                r'<found_lemmata>.*?</found_lemmata>', xml_content, re.DOTALL
+            )
+            varianten = []
+            for block in found_lemmata_blocks:
+                parent_m = re.search(r'<parent>(.*?)</parent>', block)
+                if not parent_m or not parent_m.group(1).strip():
+                    continue
+                parts = [p.strip() for p in parent_m.group(1).split('|')]
+                namen = [p.split('###')[0].strip() for p in parts if '###' in p]
+                if any(n.lower() == word_normalized.lower() for n in namen):
+                    for n in namen:
+                        if n.lower() != word_normalized.lower() and n not in varianten:
+                            varianten.append(n)
+            if varianten and word_info:
+                word_info['varianten'] = varianten
 
             # Meervoud-detectie (case-insensitief: API retourneert altijd kleine letters)
             wn_lower = re.escape(word_normalized.lower())
@@ -1171,6 +1189,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 return len(f"'{dw}'  {disp}")
             return len(f"'{dw}'")
 
+        varianten = word_info.get('varianten', []) if word_info else []
+
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
             max_line_len = max(_entry_display_len(e) for e in entries)
@@ -1192,6 +1212,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 disp0 = entry0.get('display') if entry0 else None
                 first_line = f"'{display_word}'  {disp0}" if disp0 else f"'{display_word}'"
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
+        if varianten:
+            popup_height += 22
 
         # Bereken benodigde breedte op basis van tekstlengte
         estimated_width = max_line_len * 8 + 200
@@ -1315,6 +1337,24 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 tk.Label(first_line_frame, text=f"  ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
 
             tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+
+        # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
+        if varianten:
+            zie_ook_frame = tk.Frame(text_frame, bg='white')
+            zie_ook_frame.pack(anchor='w', pady=(2, 0))
+            tk.Label(zie_ook_frame, text="Zie ook: ", font=("Arial", 10, "italic"),
+                     fg='gray40', bg='white').pack(side='left')
+            for i, variant in enumerate(varianten):
+                variant_lbl = tk.Label(zie_ook_frame, text=variant,
+                                       font=("Arial", 10, "italic", "underline"),
+                                       fg='gray40', cursor='hand2', bg='white')
+                variant_lbl.pack(side='left')
+                variant_url = f"https://woordenlijst.org/zoeken/?q={quote(variant)}"
+                variant_lbl.bind('<Button-1>',
+                                 lambda e, u=variant_url: [os.startfile(u), popup.destroy()])
+                if i < len(varianten) - 1:
+                    tk.Label(zie_ook_frame, text=", ", font=("Arial", 10, "italic"),
+                             fg='gray40', bg='white').pack(side='left')
 
         # Automatisch sluiten na 3 seconden (annuleerbaar via linkermuisklik)
         auto_close = [None]
