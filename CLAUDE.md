@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5.7) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5.8) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -300,6 +300,10 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.5.8
+- **Variant spellings** ("Zie ook:"): the success popup now shows co-equal variant spellings when the API reports them — e.g. searching *stuken* shows *Zie ook: stuccen*. Variants are clickable links. Only shown when the searched word itself appears in the API's `<parent>` field, preventing false positives.
+- **Abbreviations allowed**: period (`.`) added to the input filter whitelist, so abbreviations such as *etc.* and *enz.* no longer trigger the "unusual characters" warning.
 
 ### v1.5.7
 - **Compound word suggestions**: when a word is not found and the spellcheck API returns no corrections, the app now falls back to a regex prefix search (`find_wordform` with `regex=true`). This surfaces compound words built on the input — e.g. searching *doe-het-zelf* now suggests *doe-het-zelfafdeling* and similar entries.
