@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5.8) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.5.9) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -300,6 +300,9 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.5.9
+- **Right-click context menu on suggestions**: suggestions in the "not found" popup now respond to right-click with a menu offering "Kopiëren" (copies to clipboard, closes popup) and "Openen in Woordenlijst.org" (opens browser, closes popup). Left-click continues to open the browser directly. Applies to both spelling suggestion links ("Bedoelde u:") and the correct-form link ("Gebruik 'term'").
 
 ### v1.5.8
 - **Variant spellings** ("Zie ook:"): the success popup now shows co-equal variant spellings when the API reports them — e.g. searching *stuken* shows *Zie ook: stuccen*. Variants are clickable links. Only shown when the searched word itself appears in the API's `<parent>` field, preventing false positives.
