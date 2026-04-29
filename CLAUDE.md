@@ -302,7 +302,7 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ## Release Notes
 
 ### v1.5.9
-- **Right-click context menu on suggestions**: suggestions in the "not found" popup now respond to right-click with a menu offering "Kopiëren" (copies to clipboard, closes popup) and "Openen in Woordenlijst.org" (opens browser, closes popup). Left-click continues to open the browser directly. Applies to both spelling suggestion links ("Bedoelde u:") and the correct-form link ("Gebruik 'term'").
+- **Right-click context menu on suggestions**: suggestions in the "not found" popup now respond to right-click with a menu offering "Kopiëren" (copies to clipboard, closes popup) and "Openen in Woordenlijst.org" (opens browser, closes popup). Left-click continues to open the browser directly. Applies to both spelling suggestion links ("Bedoelde u:"), the correct-form link ("Gebruik 'term'"), and the alternative white spelling link ("Alternatieve witte spelling:").
 
 ### v1.5.8
 - **Variant spellings** ("Zie ook:"): the success popup now shows co-equal variant spellings when the API reports them — e.g. searching *stuken* shows *Zie ook: stuccen*. Variants are clickable links. Only shown when the searched word itself appears in the API's `<parent>` field, preventing false positives.
