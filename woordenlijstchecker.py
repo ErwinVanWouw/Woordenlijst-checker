@@ -1570,6 +1570,18 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             )
             alt_link.pack(pady=(0, 5))
             alt_link.bind("<Button-1>", lambda e: [os.startfile(alt_url), dialog.destroy()])
+            def toon_alt_menu(event, w=alt_word, u=alt_url):
+                menu = tk.Menu(dialog, tearoff=0)
+                menu.add_command(
+                    label="Kopiëren",
+                    command=lambda: [pyperclip.copy(w), dialog.destroy()]
+                )
+                menu.add_command(
+                    label="Openen in Woordenlijst.org",
+                    command=lambda: [os.startfile(u), dialog.destroy()]
+                )
+                menu.tk_popup(event.x_root, event.y_root)
+            alt_link.bind("<Button-3>", toon_alt_menu)
 
         # Vraag om website te openen
         tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
