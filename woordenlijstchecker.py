@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5.8"
+VERSION = "1.5.9"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -1505,6 +1505,18 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     os.startfile(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
                     dialog.destroy()
 
+                def toon_contextmenu(event, suggestion):
+                    menu = tk.Menu(dialog, tearoff=0)
+                    menu.add_command(
+                        label="Kopiëren",
+                        command=lambda: [pyperclip.copy(suggestion), dialog.destroy()]
+                    )
+                    menu.add_command(
+                        label="Openen in Woordenlijst.org",
+                        command=lambda: open_suggestion_and_close(suggestion)
+                    )
+                    menu.tk_popup(event.x_root, event.y_root)
+
                 for suggestion in suggestions[:3]:
                     link = tk.Label(
                         suggestions_frame,
@@ -1515,9 +1527,38 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     )
                     link.pack(pady=2)
                     link.bind("<Button-1>", lambda e, s=suggestion: open_suggestion_and_close(s))
+                    link.bind("<Button-3>", lambda e, s=suggestion: toon_contextmenu(e, s))
             else:
-                # Normale foutmelding (zoals "Gebruik 'pH'")
-                tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
+                # Foutmelding met klikbare term (zoals "Gebruik 'pH'")
+                term_m = re.search(r"Gebruik '(.+)'", error_message)
+                if term_m:
+                    term = term_m.group(1)
+                    gebruik_frame = tk.Frame(dialog)
+                    gebruik_frame.pack(pady=5)
+                    tk.Label(gebruik_frame, text="Gebruik ",
+                             font=("Arial", 10, "italic")).pack(side='left')
+                    term_lbl = tk.Label(gebruik_frame, text=f"'{term}'",
+                                        font=("Arial", 10, "italic", "underline"),
+                                        fg="blue", cursor="hand2")
+                    term_lbl.pack(side='left')
+                    term_url = f"https://woordenlijst.org/zoeken/?q={quote(term)}"
+                    term_lbl.bind("<Button-1>",
+                                  lambda e, u=term_url: [os.startfile(u), dialog.destroy()])
+                    def toon_term_menu(event, t=term, u=term_url):
+                        menu = tk.Menu(dialog, tearoff=0)
+                        menu.add_command(
+                            label="Kopiëren",
+                            command=lambda: [pyperclip.copy(t), dialog.destroy()]
+                        )
+                        menu.add_command(
+                            label="Openen in Woordenlijst.org",
+                            command=lambda: [os.startfile(u), dialog.destroy()]
+                        )
+                        menu.tk_popup(event.x_root, event.y_root)
+                    term_lbl.bind("<Button-3>", toon_term_menu)
+                else:
+                    tk.Label(dialog, text=error_message,
+                             font=("Arial", 10, "italic"), pady=5).pack()
 
         # Alternatieve witte spelling (Prisma)
         if alternatief_info:
@@ -1529,6 +1570,18 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             )
             alt_link.pack(pady=(0, 5))
             alt_link.bind("<Button-1>", lambda e: [os.startfile(alt_url), dialog.destroy()])
+            def toon_alt_menu(event, w=alt_word, u=alt_url):
+                menu = tk.Menu(dialog, tearoff=0)
+                menu.add_command(
+                    label="Kopiëren",
+                    command=lambda: [pyperclip.copy(w), dialog.destroy()]
+                )
+                menu.add_command(
+                    label="Openen in Woordenlijst.org",
+                    command=lambda: [os.startfile(u), dialog.destroy()]
+                )
+                menu.tk_popup(event.x_root, event.y_root)
+            alt_link.bind("<Button-3>", toon_alt_menu)
 
         # Vraag om website te openen
         tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()

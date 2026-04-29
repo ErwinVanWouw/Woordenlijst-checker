@@ -1,4 +1,4 @@
-# Woordenlijst-checker v1.5.8
+# Woordenlijst-checker v1.5.9
 
 Met deze tool kunt u snel controleren of een woord is opgenomen in de officiële (groene) en onofficiële (witte) woordenlijst van de Nederlandse taal zonder de Windows-app waarin u werkt te verlaten.
 
