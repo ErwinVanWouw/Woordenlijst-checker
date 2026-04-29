@@ -1505,6 +1505,18 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     os.startfile(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
                     dialog.destroy()
 
+                def toon_contextmenu(event, suggestion):
+                    menu = tk.Menu(dialog, tearoff=0)
+                    menu.add_command(
+                        label="Kopiëren",
+                        command=lambda: [pyperclip.copy(suggestion), dialog.destroy()]
+                    )
+                    menu.add_command(
+                        label="Openen in Woordenlijst.org",
+                        command=lambda: open_suggestion_and_close(suggestion)
+                    )
+                    menu.tk_popup(event.x_root, event.y_root)
+
                 for suggestion in suggestions[:3]:
                     link = tk.Label(
                         suggestions_frame,
@@ -1515,6 +1527,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     )
                     link.pack(pady=2)
                     link.bind("<Button-1>", lambda e, s=suggestion: open_suggestion_and_close(s))
+                    link.bind("<Button-3>", lambda e, s=suggestion: toon_contextmenu(e, s))
             else:
                 # Normale foutmelding (zoals "Gebruik 'pH'")
                 tk.Label(dialog, text=error_message, font=("Arial", 10, "italic"), pady=5).pack()
