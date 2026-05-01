@@ -1344,7 +1344,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 if i == laatste_znw_idx and (afbreking or afbreking_vk):
                     afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
                     tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
-                             fg='gray40', bg='white').pack(anchor='w', pady=(2, 6))
+                             fg='gray40', bg='white').pack(anchor='w', pady=(2, 2))
                     afbreking_getoond = True
 
 
@@ -1408,7 +1408,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         if not afbreking_getoond and (afbreking or afbreking_vk):
             afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
             tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
-                     fg='gray40', bg='white').pack(anchor='w', pady=(2, 6))
+                     fg='gray40', bg='white').pack(anchor='w', pady=(4, 2))
         tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
