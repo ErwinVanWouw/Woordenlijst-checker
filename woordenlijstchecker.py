@@ -476,7 +476,7 @@ def check_word_online(word):
             wn_lower = re.escape(word_normalized.lower())
             paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
-            # Extraheer afbreking uit het eerste paradigmablock op positie 0
+            # Extraheer afbreking uit het eerste positie-0-block met meerdere lettergrepen
             # (verkleinwoordvorm geeft grondwoord + verkleinuitgang als lettergrepen)
             afbreking = None
             for block in paradigm_blocks:
@@ -484,7 +484,7 @@ def check_word_online(word):
                     hyph_m = re.search(r'<hyphenation>(.*?)</hyphenation>', block)
                     if hyph_m and '|' in hyph_m.group(1):
                         afbreking = hyph_m.group(1).strip().replace('|', '·')
-                    break
+                        break
             if afbreking and word_info:
                 word_info['afbreking'] = afbreking
 
