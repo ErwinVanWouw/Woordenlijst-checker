@@ -501,6 +501,16 @@ def check_word_online(word):
                             afbreking = hyph_m.group(1).strip().replace('|', '·')
                         break
 
+            # Stap 1b: meervoudsvormen zonder position-0 match — eigen afbreking toch ophalen
+            # (bijv. 'kinderen' staat op position 10; is_basisvorm blijft False → geen vk)
+            if not is_basisvorm and not is_woordgroep:
+                for block in paradigm_blocks:
+                    if _pat_wf_ci.search(block):
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·')
+                        break
+
             # Stap 2: verkleinwoordafbreking — eerste position-0 block waarvan de wordform
             # niet overeenkomt met het gezochte woord; alleen voor enkelvoudige basisvormen
             afbreking_vk = None
@@ -557,7 +567,7 @@ def check_word_online(word):
                     'lemma': entries[0].get('lemma', word_normalized),
                     'is_meervoud': True,
                 })
-                word_info = {'entries': entries}
+                word_info['entries'] = entries
                 print(f"[Info] Invariant naamwoord - ook meervoud toegevoegd")
 
             # Finale output
