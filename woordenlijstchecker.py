@@ -476,6 +476,17 @@ def check_word_online(word):
             wn_lower = re.escape(word_normalized.lower())
             paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
+            # Extraheer afbreking voor de basisvorm (positie 0)
+            afbreking = None
+            for block in paradigm_blocks:
+                if '<position>0</position>' in block:
+                    hyph_m = re.search(r'<hyphenation>(.*?)</hyphenation>', block)
+                    if hyph_m and '|' in hyph_m.group(1):
+                        afbreking = hyph_m.group(1).strip().replace('|', '·')
+                    break
+            if afbreking and word_info:
+                word_info['afbreking'] = afbreking
+
             # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
             is_plural = bool(re.search(
                 r'<label>meervoud</label>.*?<wordform>' + wn_lower + r'</wordform>',
@@ -1190,6 +1201,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             return len(f"'{dw}'")
 
         varianten = word_info.get('varianten', []) if word_info else []
+        afbreking = word_info.get('afbreking') if word_info else None
 
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
@@ -1214,6 +1226,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         if varianten:
             popup_height += 22
+        if afbreking:
+            popup_height += 18
 
         # Bereken benodigde breedte op basis van tekstlengte
         estimated_width = max_line_len * 8 + 200
@@ -1276,8 +1290,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                     # Werkwoord / bijwoord / voegwoord / etc.
                     tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
 
-            # "staat in Woordenlijst.org" regel
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
 
         elif article and gender:
             # Enkele naamwoord-entry
@@ -1293,7 +1305,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             tk.Label(first_line_frame, text=f"  {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
 
         elif len(entries) == 1 and not article:
             # Enkele niet-naamwoord entry (werkwoord, voegwoord, bijwoord, etc.)
@@ -1312,7 +1323,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             if disp:
                 tk.Label(first_line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
 
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         else:
             # Fallback: woord zonder volledig gestructureerde woordsoort-info
@@ -1336,7 +1346,12 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             elif article:
                 tk.Label(first_line_frame, text=f"  ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
 
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+
+        # Afbreking en "staat in Woordenlijst.org" (gedeeld door alle branches)
+        if afbreking:
+            tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
+                     fg='gray40', bg='white').pack(anchor='w', pady=(4, 0))
+        tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
         if varianten:
