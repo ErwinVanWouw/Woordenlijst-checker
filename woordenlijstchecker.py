@@ -1300,9 +1300,16 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         word_labels = []  # lijst van (label, url) tuples
 
         # Opmaak voor meerdere woordsoort-entries
+        afbreking_getoond = False
         if len(entries) > 1:
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
+
+            # Index van laatste naamwoord-entry (afbreking direct daarna tonen)
+            laatste_znw_idx = None
+            for i, e in enumerate(entries):
+                if e.get('article') or e.get('is_meervoud'):
+                    laatste_znw_idx = i
 
             # Maak regel voor elke entry (alleen eerste woord wordt klikbaar)
             for i, entry in enumerate(entries):
@@ -1332,6 +1339,17 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 elif disp:
                     # Werkwoord / bijwoord / voegwoord / etc.
                     tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
+
+                # Afbreking direct na de laatste naamwoordregel
+                if i == laatste_znw_idx and (afbreking or afbreking_vk):
+                    if afbreking:
+                        tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
+                                 fg='gray40', bg='white').pack(anchor='w', pady=(2, 0))
+                    if afbreking_vk:
+                        pady_vk = (1, 0) if afbreking else (2, 0)
+                        tk.Label(text_frame, text=afbreking_vk, font=("Arial", 10, "italic"),
+                                 fg='gray40', bg='white').pack(anchor='w', pady=pady_vk)
+                    afbreking_getoond = True
 
 
         elif article and gender:
@@ -1391,13 +1409,14 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
 
         # Afbreking(en) en "staat in Woordenlijst.org" (gedeeld door alle branches)
-        if afbreking:
-            tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
-                     fg='gray40', bg='white').pack(anchor='w', pady=(4, 0))
-        if afbreking_vk:
-            pady_vk = (2, 0) if afbreking else (4, 0)
-            tk.Label(text_frame, text=afbreking_vk, font=("Arial", 10, "italic"),
-                     fg='gray40', bg='white').pack(anchor='w', pady=pady_vk)
+        if not afbreking_getoond:
+            if afbreking:
+                tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
+                         fg='gray40', bg='white').pack(anchor='w', pady=(4, 0))
+            if afbreking_vk:
+                pady_vk = (2, 0) if afbreking else (4, 0)
+                tk.Label(text_frame, text=afbreking_vk, font=("Arial", 10, "italic"),
+                         fg='gray40', bg='white').pack(anchor='w', pady=pady_vk)
         tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
