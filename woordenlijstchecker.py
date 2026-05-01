@@ -476,11 +476,11 @@ def check_word_online(word):
             wn_lower = re.escape(word_normalized.lower())
             paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
-            # Extraheer afbreking voor het gezochte woord zelf (positie 0 in het juiste paradigmablock)
+            # Extraheer afbreking uit het eerste paradigmablock op positie 0
+            # (verkleinwoordvorm geeft grondwoord + verkleinuitgang als lettergrepen)
             afbreking = None
             for block in paradigm_blocks:
-                if ('<position>0</position>' in block and
-                        re.search(r'<wordform>' + wn_lower + r'</wordform>', block)):
+                if '<position>0</position>' in block:
                     hyph_m = re.search(r'<hyphenation>(.*?)</hyphenation>', block)
                     if hyph_m and '|' in hyph_m.group(1):
                         afbreking = hyph_m.group(1).strip().replace('|', '·')
