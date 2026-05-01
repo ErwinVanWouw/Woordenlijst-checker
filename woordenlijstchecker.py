@@ -476,17 +476,46 @@ def check_word_online(word):
             wn_lower = re.escape(word_normalized.lower())
             paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
-            # Extraheer afbreking uit het eerste positie-0-block met meerdere lettergrepen
-            # (verkleinwoordvorm geeft grondwoord + verkleinuitgang als lettergrepen)
-            afbreking = None
+            is_woordgroep = ' ' in word_normalized
+            _pat_hyph  = re.compile(r'<hyphenation>(.*?)</hyphenation>')
+            _pat_wf_ci = re.compile(r'<wordform>' + wn_lower + r'</wordform>', re.IGNORECASE)
+
+            # Stap 1: eigen afbreking van het gezochte woord
+            # Woordgroepen: wordform-match op elke positie (ook mv.-enige groepen zonder pos 0)
+            # Enkelvoudige woorden: position-0 block waar wordform overeenkomt
+            afbreking    = None
+            is_basisvorm = False
             for block in paradigm_blocks:
-                if '<position>0</position>' in block:
-                    hyph_m = re.search(r'<hyphenation>(.*?)</hyphenation>', block)
-                    if hyph_m and '|' in hyph_m.group(1):
-                        afbreking = hyph_m.group(1).strip().replace('|', '·')
+                has_own = _pat_wf_ci.search(block)
+                if is_woordgroep:
+                    if has_own:
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·')
                         break
+                else:
+                    if '<position>0</position>' in block and has_own:
+                        is_basisvorm = True
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·')
+                        break
+
+            # Stap 2: verkleinwoordafbreking — eerste position-0 block waarvan de wordform
+            # niet overeenkomt met het gezochte woord; alleen voor enkelvoudige basisvormen
+            afbreking_vk = None
+            if is_basisvorm:
+                for block in paradigm_blocks:
+                    if '<position>0</position>' in block and not _pat_wf_ci.search(block):
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking_vk = hyph_m.group(1).strip().replace('|', '·')
+                            break
+
             if afbreking and word_info:
                 word_info['afbreking'] = afbreking
+            if afbreking_vk and word_info:
+                word_info['afbreking_vk'] = afbreking_vk
 
             # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
             is_plural = bool(re.search(
@@ -1201,8 +1230,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 return len(f"'{dw}'  {disp}")
             return len(f"'{dw}'")
 
-        varianten = word_info.get('varianten', []) if word_info else []
-        afbreking = word_info.get('afbreking') if word_info else None
+        varianten    = word_info.get('varianten', []) if word_info else []
+        afbreking    = word_info.get('afbreking')    if word_info else None
+        afbreking_vk = word_info.get('afbreking_vk') if word_info else None
 
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
@@ -1228,6 +1258,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         if varianten:
             popup_height += 22
         if afbreking:
+            popup_height += 18
+        if afbreking_vk:
             popup_height += 18
 
         # Bereken benodigde breedte op basis van tekstlengte
@@ -1348,10 +1380,14 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 tk.Label(first_line_frame, text=f"  ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
 
 
-        # Afbreking en "staat in Woordenlijst.org" (gedeeld door alle branches)
+        # Afbreking(en) en "staat in Woordenlijst.org" (gedeeld door alle branches)
         if afbreking:
             tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
                      fg='gray40', bg='white').pack(anchor='w', pady=(4, 0))
+        if afbreking_vk:
+            pady_vk = (2, 0) if afbreking else (4, 0)
+            tk.Label(text_frame, text=afbreking_vk, font=("Arial", 10, "italic"),
+                     fg='gray40', bg='white').pack(anchor='w', pady=pady_vk)
         tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
