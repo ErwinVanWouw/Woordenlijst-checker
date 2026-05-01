@@ -1269,7 +1269,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             popup_height += 22
         if afbreking:
             popup_height += 18
-        if afbreking_vk:
+        if afbreking_vk and not afbreking:
             popup_height += 18
 
         # Bereken benodigde breedte op basis van tekstlengte
@@ -1342,13 +1342,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
                 # Afbreking direct na de laatste naamwoordregel
                 if i == laatste_znw_idx and (afbreking or afbreking_vk):
-                    if afbreking:
-                        tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
-                                 fg='gray40', bg='white').pack(anchor='w', pady=(2, 0))
-                    if afbreking_vk:
-                        pady_vk = (1, 0) if afbreking else (2, 0)
-                        tk.Label(text_frame, text=afbreking_vk, font=("Arial", 10, "italic"),
-                                 fg='gray40', bg='white').pack(anchor='w', pady=pady_vk)
+                    afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
+                    tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
+                             fg='gray40', bg='white').pack(anchor='w', pady=(2, 0))
                     afbreking_getoond = True
 
 
@@ -1409,14 +1405,10 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
 
         # Afbreking(en) en "staat in Woordenlijst.org" (gedeeld door alle branches)
-        if not afbreking_getoond:
-            if afbreking:
-                tk.Label(text_frame, text=afbreking, font=("Arial", 10, "italic"),
-                         fg='gray40', bg='white').pack(anchor='w', pady=(4, 0))
-            if afbreking_vk:
-                pady_vk = (2, 0) if afbreking else (4, 0)
-                tk.Label(text_frame, text=afbreking_vk, font=("Arial", 10, "italic"),
-                         fg='gray40', bg='white').pack(anchor='w', pady=pady_vk)
+        if not afbreking_getoond and (afbreking or afbreking_vk):
+            afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
+            tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
+                     fg='gray40', bg='white').pack(anchor='w', pady=(4, 0))
         tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
