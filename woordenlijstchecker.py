@@ -1409,7 +1409,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
             tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
                      fg='gray40', bg='white').pack(anchor='w', pady=(4, 6))
-        tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+        staat_pady = (4, 0) if (not afbreking_getoond and (afbreking or afbreking_vk)) else (10, 0)
+        tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=staat_pady)
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
         if varianten:
