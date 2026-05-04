@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.5.9"
+VERSION = "1.6"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -476,6 +476,57 @@ def check_word_online(word):
             wn_lower = re.escape(word_normalized.lower())
             paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
+            is_woordgroep = ' ' in word_normalized
+            _pat_hyph  = re.compile(r'<hyphenation>(.*?)</hyphenation>')
+            _pat_wf_ci = re.compile(r'<wordform>' + wn_lower + r'</wordform>', re.IGNORECASE)
+
+            # Stap 1: eigen afbreking van het gezochte woord
+            # Woordgroepen: wordform-match op elke positie (ook mv.-enige groepen zonder pos 0)
+            # Enkelvoudige woorden: position-0 block waar wordform overeenkomt
+            afbreking    = None
+            is_basisvorm = False
+            for block in paradigm_blocks:
+                has_own = _pat_wf_ci.search(block)
+                if is_woordgroep:
+                    if has_own:
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                        break
+                else:
+                    if '<position>0</position>' in block and has_own:
+                        is_basisvorm = True
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                        break
+
+            # Stap 1b: meervoudsvormen zonder position-0 match — eigen afbreking toch ophalen
+            # (bijv. 'kinderen' staat op position 10; is_basisvorm blijft False → geen vk)
+            if not is_basisvorm and not is_woordgroep:
+                for block in paradigm_blocks:
+                    if _pat_wf_ci.search(block):
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                        break
+
+            # Stap 2: verkleinwoordafbreking — eerste position-0 block waarvan de wordform
+            # niet overeenkomt met het gezochte woord; alleen voor enkelvoudige basisvormen
+            afbreking_vk = None
+            if is_basisvorm:
+                for block in paradigm_blocks:
+                    if '<position>0</position>' in block and not _pat_wf_ci.search(block):
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking_vk = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                            break
+
+            if afbreking and word_info:
+                word_info['afbreking'] = afbreking
+            if afbreking_vk and word_info:
+                word_info['afbreking_vk'] = afbreking_vk
+
             # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
             is_plural = bool(re.search(
                 r'<label>meervoud</label>.*?<wordform>' + wn_lower + r'</wordform>',
@@ -516,7 +567,7 @@ def check_word_online(word):
                     'lemma': entries[0].get('lemma', word_normalized),
                     'is_meervoud': True,
                 })
-                word_info = {'entries': entries}
+                word_info['entries'] = entries
                 print(f"[Info] Invariant naamwoord - ook meervoud toegevoegd")
 
             # Finale output
@@ -1137,6 +1188,21 @@ def show_config_popup():
 
 
 # --- NOTIFICATIE FUNCTIES ---
+def _render_afbreking_label(parent, tekst, pady):
+    """Render afbreking als Frame met losse Labels; 'of' en '|' worden bold weergegeven."""
+    row = tk.Frame(parent, bg='white')
+    row.pack(anchor='w', pady=pady)
+    normaal = ("Arial", 10, "italic")
+    vet     = ("Arial", 10, "italic", "bold")
+    for pi, pipe_deel in enumerate(tekst.split(' | ')):
+        if pi > 0:
+            tk.Label(row, text=' | ', font=vet, fg='gray40', bg='white').pack(side='left')
+        for oi, of_deel in enumerate(pipe_deel.split(' of ')):
+            if oi > 0:
+                tk.Label(row, text=' of ', font=vet, fg='gray40', bg='white').pack(side='left')
+            tk.Label(row, text=of_deel, font=normaal, fg='gray40', bg='white').pack(side='left')
+
+
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
     if threading.current_thread() is not threading.main_thread():
@@ -1189,7 +1255,9 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 return len(f"'{dw}'  {disp}")
             return len(f"'{dw}'")
 
-        varianten = word_info.get('varianten', []) if word_info else []
+        varianten    = word_info.get('varianten', []) if word_info else []
+        afbreking    = word_info.get('afbreking')    if word_info else None
+        afbreking_vk = word_info.get('afbreking_vk') if word_info else None
 
         if len(entries) > 1:
             popup_height = 150 + (len(entries) - 1) * 25 + 10
@@ -1214,6 +1282,10 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             max_line_len = max(len(first_line), len("staat in Woordenlijst.org"))
         if varianten:
             popup_height += 22
+        if afbreking:
+            popup_height += 18
+        if afbreking_vk and not afbreking:
+            popup_height += 18
 
         # Bereken benodigde breedte op basis van tekstlengte
         estimated_width = max_line_len * 8 + 200
@@ -1243,14 +1315,22 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         word_labels = []  # lijst van (label, url) tuples
 
         # Opmaak voor meerdere woordsoort-entries
+        afbreking_getoond = False
         if len(entries) > 1:
             text_frame = tk.Frame(frame, bg='white')
             text_frame.pack(side='left', padx=10)
 
+            # Index van laatste naamwoord-entry (afbreking direct daarna tonen)
+            laatste_znw_idx = None
+            for i, e in enumerate(entries):
+                if e.get('article') or e.get('is_meervoud'):
+                    laatste_znw_idx = i
+
             # Maak regel voor elke entry (alleen eerste woord wordt klikbaar)
             for i, entry in enumerate(entries):
                 line_frame = tk.Frame(text_frame, bg='white')
-                line_frame.pack(anchor='w')
+                lf_pady_bottom = 1 if (i == laatste_znw_idx and (afbreking or afbreking_vk)) else 4
+                line_frame.pack(anchor='w', pady=(0, lf_pady_bottom))
 
                 # Toon lemma als het alleen in beginkapitaal afwijkt (bijv. 'Weegschaal')
                 dw = _entry_display_word(entry)
@@ -1276,8 +1356,12 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                     # Werkwoord / bijwoord / voegwoord / etc.
                     tk.Label(line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
 
-            # "staat in Woordenlijst.org" regel
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
+                # Afbreking direct na de laatste naamwoordregel
+                if i == laatste_znw_idx and (afbreking or afbreking_vk):
+                    afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
+                    _render_afbreking_label(text_frame, afbreking_tekst, pady=(0, 4))
+                    afbreking_getoond = True
+
 
         elif article and gender:
             # Enkele naamwoord-entry
@@ -1293,7 +1377,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             tk.Label(first_line_frame, text=f"  {article}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
             tk.Label(first_line_frame, text=f" ({gender})", font=("Arial", 12), bg='white').pack(side='left')
 
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10,0))
 
         elif len(entries) == 1 and not article:
             # Enkele niet-naamwoord entry (werkwoord, voegwoord, bijwoord, etc.)
@@ -1312,7 +1395,6 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             if disp:
                 tk.Label(first_line_frame, text=f"  {disp}", font=("Arial", 12), bg='white').pack(side='left')
 
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
 
         else:
             # Fallback: woord zonder volledig gestructureerde woordsoort-info
@@ -1336,7 +1418,13 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             elif article:
                 tk.Label(first_line_frame, text=f"  ({article})", font=("Arial", 12, "italic"), bg='white').pack(side='left')
 
-            tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=(10, 0))
+
+        # Afbreking(en) en "staat in Woordenlijst.org" (gedeeld door alle branches)
+        if not afbreking_getoond and (afbreking or afbreking_vk):
+            afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
+            _render_afbreking_label(text_frame, afbreking_tekst, pady=(4, 6))
+        staat_pady = (4, 0) if (not afbreking_getoond and (afbreking or afbreking_vk)) else (10, 0)
+        tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=staat_pady)
 
         # "Zie ook:" voor co-gelijke varianten (bijv. stuken ↔ stuccen)
         if varianten:
@@ -1446,14 +1534,24 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
 
         _bind_drag_save(dialog)
 
+        outer_frame = tk.Frame(dialog)
+        outer_frame.pack(fill='x', padx=15, pady=(15, 0))
+
+        cross_label = tk.Label(outer_frame, text="✗", font=("Arial", 48), fg='#cc0000')
+        cross_label.pack(side='left', padx=(0, 10))
+
+        text_frame = tk.Frame(outer_frame)
+        text_frame.pack(side='left', fill='both', expand=True)
+
         # Hoofdtekst
-        tk.Label(dialog, text=f"'{word}'\nstaat niet in Woordenlijst.org.", pady=10).pack()
+        tk.Label(text_frame, text=f"'{word}'\nstaat niet in Woordenlijst.org.",
+                 pady=10, justify='left').pack(anchor='w')
 
         # Bewerkbaar invoervak met zoekknop
         if show_entry:
             entry_var = tk.StringVar(value=word)
-            entry_frame = tk.Frame(dialog)
-            entry_frame.pack(pady=(0, 8))
+            entry_frame = tk.Frame(text_frame)
+            entry_frame.pack(anchor='w', pady=(0, 8))
 
             entry_widget = tk.Entry(entry_frame, textvariable=entry_var, width=20, font=("Arial", 10))
             entry_widget.pack(side='left', padx=(0, 5))
@@ -1490,11 +1588,11 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             # Check of het suggesties zijn (begint met "Bedoelde u:")
             if error_message.startswith("Bedoelde u:"):
                 # Toon label "Bedoelde u:"
-                tk.Label(dialog, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(pady=(5, 2))
+                tk.Label(text_frame, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(anchor='w', pady=(5, 2))
 
                 # Frame voor suggestielinks
-                suggestions_frame = tk.Frame(dialog)
-                suggestions_frame.pack(pady=5)
+                suggestions_frame = tk.Frame(text_frame)
+                suggestions_frame.pack(anchor='w', pady=5)
 
                 # Haal suggesties uit de foutmelding
                 suggestions_text = error_message.replace("Bedoelde u:", "").strip()
@@ -1525,7 +1623,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                         cursor="hand2",
                         font=("Arial", 10, "underline")
                     )
-                    link.pack(pady=2)
+                    link.pack(anchor='w', pady=2)
                     link.bind("<Button-1>", lambda e, s=suggestion: open_suggestion_and_close(s))
                     link.bind("<Button-3>", lambda e, s=suggestion: toon_contextmenu(e, s))
             else:
@@ -1533,8 +1631,8 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                 term_m = re.search(r"Gebruik '(.+)'", error_message)
                 if term_m:
                     term = term_m.group(1)
-                    gebruik_frame = tk.Frame(dialog)
-                    gebruik_frame.pack(pady=5)
+                    gebruik_frame = tk.Frame(text_frame)
+                    gebruik_frame.pack(anchor='w', pady=5)
                     tk.Label(gebruik_frame, text="Gebruik ",
                              font=("Arial", 10, "italic")).pack(side='left')
                     term_lbl = tk.Label(gebruik_frame, text=f"'{term}'",
@@ -1557,18 +1655,18 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                         menu.tk_popup(event.x_root, event.y_root)
                     term_lbl.bind("<Button-3>", toon_term_menu)
                 else:
-                    tk.Label(dialog, text=error_message,
-                             font=("Arial", 10, "italic"), pady=5).pack()
+                    tk.Label(text_frame, text=error_message,
+                             font=("Arial", 10, "italic"), pady=5, justify='left').pack(anchor='w')
 
         # Alternatieve witte spelling (Prisma)
         if alternatief_info:
             alt_word, _, alt_url = alternatief_info
-            tk.Label(dialog, text="Alternatieve witte spelling:", font=("Arial", 10, "italic")).pack(pady=(5, 0))
+            tk.Label(text_frame, text="Alternatieve witte spelling:", font=("Arial", 10, "italic")).pack(anchor='w', pady=(5, 0))
             alt_link = tk.Label(
-                dialog, text=alt_word,
+                text_frame, text=alt_word,
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
             )
-            alt_link.pack(pady=(0, 5))
+            alt_link.pack(anchor='w', pady=(0, 5))
             alt_link.bind("<Button-1>", lambda e: [os.startfile(alt_url), dialog.destroy()])
             def toon_alt_menu(event, w=alt_word, u=alt_url):
                 menu = tk.Menu(dialog, tearoff=0)
@@ -1584,7 +1682,8 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             alt_link.bind("<Button-3>", toon_alt_menu)
 
         # Vraag om website te openen
-        tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
+        tk.Label(dialog, text="Wilt u het oorspronkelijke woord opzoeken?",
+                 pady=5).pack(pady=(15, 0))
 
         # Buttonsframe
         button_frame = tk.Frame(dialog)
