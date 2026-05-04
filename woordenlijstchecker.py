@@ -1535,7 +1535,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         _bind_drag_save(dialog)
 
         outer_frame = tk.Frame(dialog)
-        outer_frame.pack(expand=True, fill='both', padx=15, pady=15)
+        outer_frame.pack(fill='x', padx=15, pady=(15, 0))
 
         cross_label = tk.Label(outer_frame, text="✗", font=("Arial", 48), fg='red')
         cross_label.pack(side='left', padx=(0, 10))
@@ -1682,12 +1682,12 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             alt_link.bind("<Button-3>", toon_alt_menu)
 
         # Vraag om website te openen
-        tk.Label(text_frame, text="Wilt u het oorspronkelijke woord opzoeken?",
-                 pady=5).pack(anchor='w')
+        tk.Label(dialog, text="Wilt u het oorspronkelijke woord opzoeken?",
+                 pady=5).pack(pady=(15, 0))
 
         # Buttonsframe
-        button_frame = tk.Frame(text_frame)
-        button_frame.pack(anchor='w', pady=10)
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(pady=10)
 
         def yes_action():
             os.startfile(url_to_open)
