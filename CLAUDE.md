@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.5.9) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.6) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -17,7 +17,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ```
 Woordenlijst-checker/
-├── woordenlijstchecker.py   # Entire application — ~1668 lines, single file
+├── woordenlijstchecker.py   # Entire application — ~1896 lines, single file
 ├── README.md                # End-user documentation
 ├── LICENSE                  # GNU GPLv3
 ├── over.md                  # App info shown in the "Over" popup (supports markdown links)
@@ -300,6 +300,13 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.6
+- **Hyphenation in success popup**: syllabification now shows both the base form and the diminutive side by side, separated by a bold `|` (e.g. *mar·shal·low | mar·shal·low·tje*). For words with variant spellings (e.g. with/without trema), alternatives are shown with a bold `of` instead of the raw `#` separator from the API.
+- **Hyphenation placement**: in multi-entry popups (words with multiple word types, e.g. *bal*), syllabification appears directly under the noun entry rather than at the bottom of the popup.
+- **Hyphenation for word groups**: fixed — multi-word entries such as *ziekte van Parkinson* and *happy few* now show correct syllabification (previously the API's wordpart paradigms were matched instead of the group's own paradigm).
+- **Hyphenation for plural and invariant nouns**: fixed — plural forms at position 10 (e.g. *kinderen*) and invariant nouns (e.g. *chassis*) now show syllabification.
+- **Failure popup redesign**: red cross icon (✗, Arial 48, #cc0000) added on the left, mirroring the success popup's green checkmark. All content is now left-aligned. "Wilt u het oorspronkelijke woord opzoeken?" and the Ja/Nee buttons sit below the icon block.
 
 ### v1.5.9
 - **Right-click context menu on suggestions**: suggestions in the "not found" popup now respond to right-click with a menu offering "Kopiëren" (copies to clipboard, closes popup) and "Openen in Woordenlijst.org" (opens browser, closes popup). Left-click continues to open the browser directly. Applies to both spelling suggestion links ("Bedoelde u:"), the correct-form link ("Gebruik 'term'"), and the alternative white spelling link ("Alternatieve witte spelling:").
