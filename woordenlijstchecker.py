@@ -1188,6 +1188,21 @@ def show_config_popup():
 
 
 # --- NOTIFICATIE FUNCTIES ---
+def _render_afbreking_label(parent, tekst, pady):
+    """Render afbreking als Frame met losse Labels; 'of' en '|' worden bold weergegeven."""
+    row = tk.Frame(parent, bg='white')
+    row.pack(anchor='w', pady=pady)
+    normaal = ("Arial", 10, "italic")
+    vet     = ("Arial", 10, "italic", "bold")
+    for pi, pipe_deel in enumerate(tekst.split(' | ')):
+        if pi > 0:
+            tk.Label(row, text=' | ', font=vet, fg='gray40', bg='white').pack(side='left')
+        for oi, of_deel in enumerate(pipe_deel.split(' of ')):
+            if oi > 0:
+                tk.Label(row, text=' of ', font=vet, fg='gray40', bg='white').pack(side='left')
+            tk.Label(row, text=of_deel, font=normaal, fg='gray40', bg='white').pack(side='left')
+
+
 def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
     if threading.current_thread() is not threading.main_thread():
@@ -1343,8 +1358,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 # Afbreking direct na de laatste naamwoordregel
                 if i == laatste_znw_idx and (afbreking or afbreking_vk):
                     afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
-                    tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
-                             fg='gray40', bg='white').pack(anchor='w', pady=(2, 8))
+                    _render_afbreking_label(text_frame, afbreking_tekst, pady=(2, 8))
                     afbreking_getoond = True
 
 
@@ -1407,8 +1421,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
         # Afbreking(en) en "staat in Woordenlijst.org" (gedeeld door alle branches)
         if not afbreking_getoond and (afbreking or afbreking_vk):
             afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
-            tk.Label(text_frame, text=afbreking_tekst, font=("Arial", 10, "italic"),
-                     fg='gray40', bg='white').pack(anchor='w', pady=(4, 6))
+            _render_afbreking_label(text_frame, afbreking_tekst, pady=(4, 6))
         staat_pady = (4, 0) if (not afbreking_getoond and (afbreking or afbreking_vk)) else (10, 0)
         tk.Label(text_frame, text="staat in Woordenlijst.org", font=("Arial", 12), bg='white').pack(anchor='w', pady=staat_pady)
 
