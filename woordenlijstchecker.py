@@ -1534,14 +1534,24 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
 
         _bind_drag_save(dialog)
 
+        outer_frame = tk.Frame(dialog)
+        outer_frame.pack(expand=True, fill='both', padx=15, pady=15)
+
+        cross_label = tk.Label(outer_frame, text="✗", font=("Arial", 48), fg='red')
+        cross_label.pack(side='left', padx=(0, 10))
+
+        text_frame = tk.Frame(outer_frame)
+        text_frame.pack(side='left', fill='both', expand=True)
+
         # Hoofdtekst
-        tk.Label(dialog, text=f"'{word}'\nstaat niet in Woordenlijst.org.", pady=10).pack()
+        tk.Label(text_frame, text=f"'{word}'\nstaat niet in Woordenlijst.org.",
+                 pady=10, justify='left').pack(anchor='w')
 
         # Bewerkbaar invoervak met zoekknop
         if show_entry:
             entry_var = tk.StringVar(value=word)
-            entry_frame = tk.Frame(dialog)
-            entry_frame.pack(pady=(0, 8))
+            entry_frame = tk.Frame(text_frame)
+            entry_frame.pack(anchor='w', pady=(0, 8))
 
             entry_widget = tk.Entry(entry_frame, textvariable=entry_var, width=20, font=("Arial", 10))
             entry_widget.pack(side='left', padx=(0, 5))
@@ -1578,11 +1588,11 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             # Check of het suggesties zijn (begint met "Bedoelde u:")
             if error_message.startswith("Bedoelde u:"):
                 # Toon label "Bedoelde u:"
-                tk.Label(dialog, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(pady=(5, 2))
+                tk.Label(text_frame, text="Bedoelde u:", font=("Arial", 10, "italic")).pack(anchor='w', pady=(5, 2))
 
                 # Frame voor suggestielinks
-                suggestions_frame = tk.Frame(dialog)
-                suggestions_frame.pack(pady=5)
+                suggestions_frame = tk.Frame(text_frame)
+                suggestions_frame.pack(anchor='w', pady=5)
 
                 # Haal suggesties uit de foutmelding
                 suggestions_text = error_message.replace("Bedoelde u:", "").strip()
@@ -1613,7 +1623,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                         cursor="hand2",
                         font=("Arial", 10, "underline")
                     )
-                    link.pack(pady=2)
+                    link.pack(anchor='w', pady=2)
                     link.bind("<Button-1>", lambda e, s=suggestion: open_suggestion_and_close(s))
                     link.bind("<Button-3>", lambda e, s=suggestion: toon_contextmenu(e, s))
             else:
@@ -1621,8 +1631,8 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                 term_m = re.search(r"Gebruik '(.+)'", error_message)
                 if term_m:
                     term = term_m.group(1)
-                    gebruik_frame = tk.Frame(dialog)
-                    gebruik_frame.pack(pady=5)
+                    gebruik_frame = tk.Frame(text_frame)
+                    gebruik_frame.pack(anchor='w', pady=5)
                     tk.Label(gebruik_frame, text="Gebruik ",
                              font=("Arial", 10, "italic")).pack(side='left')
                     term_lbl = tk.Label(gebruik_frame, text=f"'{term}'",
@@ -1645,18 +1655,18 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                         menu.tk_popup(event.x_root, event.y_root)
                     term_lbl.bind("<Button-3>", toon_term_menu)
                 else:
-                    tk.Label(dialog, text=error_message,
-                             font=("Arial", 10, "italic"), pady=5).pack()
+                    tk.Label(text_frame, text=error_message,
+                             font=("Arial", 10, "italic"), pady=5, justify='left').pack(anchor='w')
 
         # Alternatieve witte spelling (Prisma)
         if alternatief_info:
             alt_word, _, alt_url = alternatief_info
-            tk.Label(dialog, text="Alternatieve witte spelling:", font=("Arial", 10, "italic")).pack(pady=(5, 0))
+            tk.Label(text_frame, text="Alternatieve witte spelling:", font=("Arial", 10, "italic")).pack(anchor='w', pady=(5, 0))
             alt_link = tk.Label(
-                dialog, text=alt_word,
+                text_frame, text=alt_word,
                 fg="blue", cursor="hand2", font=("Arial", 10, "underline")
             )
-            alt_link.pack(pady=(0, 5))
+            alt_link.pack(anchor='w', pady=(0, 5))
             alt_link.bind("<Button-1>", lambda e: [os.startfile(alt_url), dialog.destroy()])
             def toon_alt_menu(event, w=alt_word, u=alt_url):
                 menu = tk.Menu(dialog, tearoff=0)
@@ -1672,11 +1682,12 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             alt_link.bind("<Button-3>", toon_alt_menu)
 
         # Vraag om website te openen
-        tk.Label(dialog, text="\nWilt u het oorspronkelijke woord opzoeken?", pady=5).pack()
+        tk.Label(text_frame, text="Wilt u het oorspronkelijke woord opzoeken?",
+                 pady=5).pack(anchor='w')
 
         # Buttonsframe
-        button_frame = tk.Frame(dialog)
-        button_frame.pack(pady=10)
+        button_frame = tk.Frame(text_frame)
+        button_frame.pack(anchor='w', pady=10)
 
         def yes_action():
             os.startfile(url_to_open)
