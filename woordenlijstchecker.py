@@ -491,14 +491,14 @@ def check_word_online(word):
                     if has_own:
                         hyph_m = _pat_hyph.search(block)
                         if hyph_m and '|' in hyph_m.group(1):
-                            afbreking = hyph_m.group(1).strip().replace('|', '·')
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
                         break
                 else:
                     if '<position>0</position>' in block and has_own:
                         is_basisvorm = True
                         hyph_m = _pat_hyph.search(block)
                         if hyph_m and '|' in hyph_m.group(1):
-                            afbreking = hyph_m.group(1).strip().replace('|', '·')
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
                         break
 
             # Stap 1b: meervoudsvormen zonder position-0 match — eigen afbreking toch ophalen
@@ -508,7 +508,7 @@ def check_word_online(word):
                     if _pat_wf_ci.search(block):
                         hyph_m = _pat_hyph.search(block)
                         if hyph_m and '|' in hyph_m.group(1):
-                            afbreking = hyph_m.group(1).strip().replace('|', '·')
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
                         break
 
             # Stap 2: verkleinwoordafbreking — eerste position-0 block waarvan de wordform
@@ -519,7 +519,7 @@ def check_word_online(word):
                     if '<position>0</position>' in block and not _pat_wf_ci.search(block):
                         hyph_m = _pat_hyph.search(block)
                         if hyph_m and '|' in hyph_m.group(1):
-                            afbreking_vk = hyph_m.group(1).strip().replace('|', '·')
+                            afbreking_vk = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
                             break
 
             if afbreking and word_info:
