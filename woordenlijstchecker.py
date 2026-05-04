@@ -1329,7 +1329,8 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
             # Maak regel voor elke entry (alleen eerste woord wordt klikbaar)
             for i, entry in enumerate(entries):
                 line_frame = tk.Frame(text_frame, bg='white')
-                line_frame.pack(anchor='w')
+                lf_pady_bottom = 1 if (i == laatste_znw_idx and (afbreking or afbreking_vk)) else 4
+                line_frame.pack(anchor='w', pady=(0, lf_pady_bottom))
 
                 # Toon lemma als het alleen in beginkapitaal afwijkt (bijv. 'Weegschaal')
                 dw = _entry_display_word(entry)
@@ -1358,7 +1359,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 # Afbreking direct na de laatste naamwoordregel
                 if i == laatste_znw_idx and (afbreking or afbreking_vk):
                     afbreking_tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
-                    _render_afbreking_label(text_frame, afbreking_tekst, pady=(2, 8))
+                    _render_afbreking_label(text_frame, afbreking_tekst, pady=(0, 4))
                     afbreking_getoond = True
 
 
