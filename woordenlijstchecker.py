@@ -1537,7 +1537,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
         outer_frame = tk.Frame(dialog)
         outer_frame.pack(fill='x', padx=15, pady=(15, 0))
 
-        cross_label = tk.Label(outer_frame, text="✗", font=("Arial", 48), fg='red')
+        cross_label = tk.Label(outer_frame, text="✗", font=("Arial", 48), fg='#cc0000')
         cross_label.pack(side='left', padx=(0, 10))
 
         text_frame = tk.Frame(outer_frame)
