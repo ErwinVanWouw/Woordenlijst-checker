@@ -411,7 +411,7 @@ def check_word_online(word):
     Verwacht een al-genormaliseerd woord (apostrofs zijn al omgezet door perform_check)."""
     if not word or not word.strip():
         print("[Info] Klembord is leeg, actie geannuleerd.")
-        return False, word, None, None, None, None, None
+        return False, word, None, None, None, None
 
     word_normalized = word
 
@@ -625,10 +625,10 @@ def check_word_online(word):
                 if relevant_lemmas:
                     error_msg = f"Gebruik '{relevant_lemmas[0]}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg, None, None, None, None
+                    return False, word, error_msg, None, None, None
                 else:
                     print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-                    return False, word, "Controleer de spelling", None, None, None, None
+                    return False, word, "Controleer de spelling", None, None, None
 
             # CHECK 2: hoofdlettergevoelige woorden (pH, mkb, etc.)
             for lemma in lemmas:
@@ -652,7 +652,7 @@ def check_word_online(word):
 
                     error_msg = f"Gebruik '{lemma}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg, None, None, None, None
+                    return False, word, error_msg, None, None, None
 
             # UITZONDERING: enkelvoudig woord met alleen eerste hoofdletter (Fiets)
             if (len(word_normalized) > 1 and
@@ -670,7 +670,7 @@ def check_word_online(word):
                 return True, word, None, article, word_info, gender
 
             print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-            return False, word, "Controleer de spelling", None, None, None, None
+            return False, word, "Controleer de spelling", None, None, None
         else:
             # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
@@ -682,16 +682,16 @@ def check_word_online(word):
 
             if suggestions:
                 error_msg = f"Bedoelde u: {suggestions}"
-                return False, word, error_msg, None, None, None, None
+                return False, word, error_msg, None, None, None
             else:
-                return False, word, None, None, None, None, None
+                return False, word, None, None, None, None
 
     except requests.exceptions.RequestException as e:
         print(f"[Fout] Netwerkfout bij API-aanroep: {e}")
-        return False, word, "Netwerkfout - controleer uw verbinding", None, None, None, None
+        return False, word, "Netwerkfout - controleer uw verbinding", None, None, None
     except Exception as e:
         print(f"[Fout] Onverwachte fout tijdens controle: {e}")
-        return False, word, "Er is een fout opgetreden", None, None, None, None
+        return False, word, "Er is een fout opgetreden", None, None, None
 
 def get_spelling_suggestions(word):
     """Haal spellingsuggesties op via de spellcheck API"""
