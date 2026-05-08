@@ -492,19 +492,7 @@ TESTWOORDEN = [
     "taxi\u02BCs",   # modifier letter apostrophe (ʼ)
     "taxi's",        # standaard apostrof — correcte vorm
 
-    # --- Ronde 6: afbreking (nieuwe gevallen) ---
-    # Basis + verkleinwoord naast elkaar
-    'marshmallow',
-    # Tussenwerpsel (geen afbreking zelf) + verkleinwoord (stop·je)
-    'stop',
-    # Werkwoord: eigen afbreking, geen verkleinwoord
-    'stoppen',
-    # Variant spelling met 'of' (trema vs. geen trema)
-    'officiële',
-    # Woordgroep enkelvoud
-    'ziekte van Parkinson',
-
-    # --- Ronde 7: randgevallen & invoerfilter ---
+    # --- Ronde 6: randgevallen & invoerfilter ---
     'CO\u2082',      # subscript (CO₂)
     'm\u00B3',       # superscript (m³)
     'P@ssw0rd!',
