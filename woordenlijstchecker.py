@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.6"
+VERSION = "1.6.1"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -80,6 +80,9 @@ POS_AFKORTINGEN = {
     'tussenwerpsel':                      'tw.',
     'symbool':                            'symb.',
 }
+
+# Vaste regex voor afbrekingsextractie (gecompileerd eenmalig op moduleniveau)
+_pat_hyph = re.compile(r'<hyphenation>(.*?)</hyphenation>')
 
 # Eén permanente verborgen Tk-root voor alle popups (voorkomt flikkering bij aanmaken)
 _popup_root = None
@@ -404,11 +407,11 @@ def _extract_woordsoort_entries(xml, word):
 
 # --- KERNFUNCTIE: WOORDCONTROLE VIA API ---
 def check_word_online(word):
-    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article, word_info, gender, gender_info_list).
+    """Strikte controle, alleen lemma's - retourneert (is_valid, word, error_message, article, word_info, gender).
     Verwacht een al-genormaliseerd woord (apostrofs zijn al omgezet door perform_check)."""
     if not word or not word.strip():
         print("[Info] Klembord is leeg, actie geannuleerd.")
-        return False, word, None, None, None, None, None
+        return False, word, None, None, None, None
 
     word_normalized = word
 
@@ -444,7 +447,6 @@ def check_word_online(word):
             # Bepaal article en gender voor backward-compat. (enkelvoudig naamwoord)
             article = None
             gender = None
-            gender_info_list = None  # niet meer in gebruik; popup leest word_info['entries']
 
             noun_entries = [e for e in entries if e.get('article')]
             if noun_entries:
@@ -477,7 +479,6 @@ def check_word_online(word):
             paradigm_blocks = re.findall(r'<paradigm>.*?</paradigm>', xml_content, re.DOTALL)
 
             is_woordgroep = ' ' in word_normalized
-            _pat_hyph  = re.compile(r'<hyphenation>(.*?)</hyphenation>')
             _pat_wf_ci = re.compile(r'<wordform>' + wn_lower + r'</wordform>', re.IGNORECASE)
 
             # Stap 1: eigen afbreking van het gezochte woord
@@ -584,7 +585,7 @@ def check_word_online(word):
             # NIEUWE CHECK: is het ingevoerde woord zelf een lemma?
             if word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN (officiële spelling).")
-                return True, word, None, article, word_info, gender, gender_info_list
+                return True, word, None, article, word_info, gender
 
             # CHECK 1: zijn er lemma's met interne hoofdletters?
             has_internal_caps_lemma = any(
@@ -617,17 +618,17 @@ def check_word_online(word):
 
                         if exact_match:
                             print(f"[Resultaat] '{word}' is GEVONDEN.")
-                            return True, word, None, article, word_info, gender, gender_info_list
+                            return True, word, None, article, word_info, gender
 
                 # Niet goedgekeurd - geef feedback
                 relevant_lemmas = [l for l in lemmas if any(c.isupper() for c in l[1:])]
                 if relevant_lemmas:
                     error_msg = f"Gebruik '{relevant_lemmas[0]}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg, None, None, None, None
+                    return False, word, error_msg, None, None, None
                 else:
                     print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-                    return False, word, "Controleer de spelling", None, None, None, None
+                    return False, word, "Controleer de spelling", None, None, None
 
             # CHECK 2: hoofdlettergevoelige woorden (pH, mkb, etc.)
             for lemma in lemmas:
@@ -651,7 +652,7 @@ def check_word_online(word):
 
                     error_msg = f"Gebruik '{lemma}'"
                     print(f"[Resultaat] '{word}' is NIET correct ({error_msg}).")
-                    return False, word, error_msg, None, None, None, None
+                    return False, word, error_msg, None, None, None
 
             # UITZONDERING: enkelvoudig woord met alleen eerste hoofdletter (Fiets)
             if (len(word_normalized) > 1 and
@@ -661,15 +662,15 @@ def check_word_online(word):
 
                 if word_normalized.lower() in wordforms or word_normalized.lower() in lemmas:
                     print(f"[Resultaat] '{word}' is GEVONDEN (hoofdletter toegestaan).")
-                    return True, word, None, article, word_info, gender, gender_info_list
+                    return True, word, None, article, word_info, gender
 
             # NORMALE MODUS: geen speciale hoofdletters, accepteer wordforms
             if word_normalized in wordforms or word_normalized in lemmas:
                 print(f"[Resultaat] '{word}' is GEVONDEN.")
-                return True, word, None, article, word_info, gender, gender_info_list
+                return True, word, None, article, word_info, gender
 
             print(f"[Resultaat] '{word}' is NIET correct gespeld.")
-            return False, word, "Controleer de spelling", None, None, None, None
+            return False, word, "Controleer de spelling", None, None, None
         else:
             # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
@@ -681,16 +682,16 @@ def check_word_online(word):
 
             if suggestions:
                 error_msg = f"Bedoelde u: {suggestions}"
-                return False, word, error_msg, None, None, None, None
+                return False, word, error_msg, None, None, None
             else:
-                return False, word, None, None, None, None, None
+                return False, word, None, None, None, None
 
     except requests.exceptions.RequestException as e:
         print(f"[Fout] Netwerkfout bij API-aanroep: {e}")
-        return False, word, "Netwerkfout - controleer uw verbinding", None, None, None, None
+        return False, word, "Netwerkfout - controleer uw verbinding", None, None, None
     except Exception as e:
         print(f"[Fout] Onverwachte fout tijdens controle: {e}")
-        return False, word, "Er is een fout opgetreden", None, None, None, None
+        return False, word, "Er is een fout opgetreden", None, None, None
 
 def get_spelling_suggestions(word):
     """Haal spellingsuggesties op via de spellcheck API"""
@@ -858,16 +859,10 @@ def _bind_drag_save(window):
     window.bind('<Configure>', on_drag_end)
 
 
-def _get_readme_path():
-    """Retourneert het pad naar README.md (werkt zowel als .py als .exe)."""
+def _get_asset_path(filename):
+    """Retourneert het pad naar een asset-bestand (werkt zowel als .py als .exe)."""
     base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, 'README.md')
-
-
-def _get_over_path():
-    """Retourneert het pad naar over.md (werkt zowel als .py als .exe)."""
-    base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, 'over.md')
+    return os.path.join(base, filename)
 
 
 def _render_inline(text_widget, line, link_counter):
@@ -933,7 +928,7 @@ def show_help_popup():
         text.tag_configure('h2', font=("Arial", 11, "bold"), spacing1=8, spacing3=2)
         text.tag_configure('normal', font=("Arial", 10))
 
-        readme_path = _get_readme_path()
+        readme_path = _get_asset_path('README.md')
         if os.path.exists(readme_path):
             with open(readme_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
@@ -996,7 +991,7 @@ def show_over_popup():
         text.tag_configure('h1', font=("Arial", 13, "bold"), spacing1=6, spacing3=4)
         text.tag_configure('normal', font=("Arial", 10))
 
-        over_path = _get_over_path()
+        over_path = _get_asset_path('over.md')
         if os.path.exists(over_path):
             with open(over_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
@@ -1203,12 +1198,20 @@ def _render_afbreking_label(parent, tekst, pady):
             tk.Label(row, text=of_deel, font=normaal, fg='gray40', bg='white').pack(side='left')
 
 
-def show_success_popup(word, article=None, word_info=None, gender=None, gender_info_list=None):
+def _toon_link_contextmenu(event, dialog, tekst, url):
+    """Rechtermuismenu met 'Kopiëren' en 'Openen in Woordenlijst.org' voor klikbare links."""
+    menu = tk.Menu(dialog, tearoff=0)
+    menu.add_command(label="Kopiëren", command=lambda: [pyperclip.copy(tekst), dialog.destroy()])
+    menu.add_command(label="Openen in Woordenlijst.org", command=lambda: [os.startfile(url), dialog.destroy()])
+    menu.tk_popup(event.x_root, event.y_root)
+
+
+def show_success_popup(word, article=None, word_info=None, gender=None):
     """Toon 3 seconden pop-up met groen vinkje en optioneel lidwoord met gender"""
     if threading.current_thread() is not threading.main_thread():
         done = threading.Event()
         def _dispatch():
-            show_success_popup(word, article, word_info, gender, gender_info_list)
+            show_success_popup(word, article, word_info, gender)
             done.set()
         _popup_root.after(0, _dispatch)
         done.wait()
@@ -1218,6 +1221,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
 
         # Maak aangepast pop-upvenster
         popup = tk.Toplevel(root)
+        popup.withdraw()
         popup.title("Gevonden")
         popup.configure(bg='white')
 
@@ -1459,6 +1463,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None, gender_i
                 popup.focus_set()
                 popup.bind('<Return>', lambda e: popup.destroy())
 
+        popup.deiconify()
         auto_close[0] = popup.after(3000, popup.destroy)
 
         # Bind linkermuisklik op pop-up en alle child-widgets om timer te annuleren
@@ -1570,9 +1575,9 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                         target=lambda: prisma_result.__setitem__(0, check_prisma_alternatief(new_word))
                     )
                     prisma_thread.start()
-                    is_valid, checked_word, error_msg, article, word_info, gender, gender_info_list = check_word_online(new_word)
+                    is_valid, checked_word, error_msg, article, word_info, gender = check_word_online(new_word)
                     if is_valid:
-                        show_success_popup(checked_word, article, word_info, gender, gender_info_list)
+                        show_success_popup(checked_word, article, word_info, gender)
                     else:
                         prisma_thread.join(timeout=6)
                         prisma_data = None if prisma_thread.is_alive() else prisma_result[0]
@@ -1603,18 +1608,6 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     os.startfile(f"https://woordenlijst.org/zoeken/?q={quote(suggestion)}")
                     dialog.destroy()
 
-                def toon_contextmenu(event, suggestion):
-                    menu = tk.Menu(dialog, tearoff=0)
-                    menu.add_command(
-                        label="Kopiëren",
-                        command=lambda: [pyperclip.copy(suggestion), dialog.destroy()]
-                    )
-                    menu.add_command(
-                        label="Openen in Woordenlijst.org",
-                        command=lambda: open_suggestion_and_close(suggestion)
-                    )
-                    menu.tk_popup(event.x_root, event.y_root)
-
                 for suggestion in suggestions[:3]:
                     link = tk.Label(
                         suggestions_frame,
@@ -1625,7 +1618,8 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     )
                     link.pack(anchor='w', pady=2)
                     link.bind("<Button-1>", lambda e, s=suggestion: open_suggestion_and_close(s))
-                    link.bind("<Button-3>", lambda e, s=suggestion: toon_contextmenu(e, s))
+                    link.bind("<Button-3>", lambda e, s=suggestion: _toon_link_contextmenu(
+                        e, dialog, s, f"https://woordenlijst.org/zoeken/?q={quote(s)}"))
             else:
                 # Foutmelding met klikbare term (zoals "Gebruik 'pH'")
                 term_m = re.search(r"Gebruik '(.+)'", error_message)
@@ -1642,18 +1636,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
                     term_url = f"https://woordenlijst.org/zoeken/?q={quote(term)}"
                     term_lbl.bind("<Button-1>",
                                   lambda e, u=term_url: [os.startfile(u), dialog.destroy()])
-                    def toon_term_menu(event, t=term, u=term_url):
-                        menu = tk.Menu(dialog, tearoff=0)
-                        menu.add_command(
-                            label="Kopiëren",
-                            command=lambda: [pyperclip.copy(t), dialog.destroy()]
-                        )
-                        menu.add_command(
-                            label="Openen in Woordenlijst.org",
-                            command=lambda: [os.startfile(u), dialog.destroy()]
-                        )
-                        menu.tk_popup(event.x_root, event.y_root)
-                    term_lbl.bind("<Button-3>", toon_term_menu)
+                    term_lbl.bind("<Button-3>", lambda e, t=term, u=term_url: _toon_link_contextmenu(e, dialog, t, u))
                 else:
                     tk.Label(text_frame, text=error_message,
                              font=("Arial", 10, "italic"), pady=5, justify='left').pack(anchor='w')
@@ -1668,18 +1651,7 @@ def show_failure_popup(word, error_message=None, alternatief_info=None):
             )
             alt_link.pack(anchor='w', pady=(0, 5))
             alt_link.bind("<Button-1>", lambda e: [os.startfile(alt_url), dialog.destroy()])
-            def toon_alt_menu(event, w=alt_word, u=alt_url):
-                menu = tk.Menu(dialog, tearoff=0)
-                menu.add_command(
-                    label="Kopiëren",
-                    command=lambda: [pyperclip.copy(w), dialog.destroy()]
-                )
-                menu.add_command(
-                    label="Openen in Woordenlijst.org",
-                    command=lambda: [os.startfile(u), dialog.destroy()]
-                )
-                menu.tk_popup(event.x_root, event.y_root)
-            alt_link.bind("<Button-3>", toon_alt_menu)
+            alt_link.bind("<Button-3>", lambda e, w=alt_word, u=alt_url: _toon_link_contextmenu(e, dialog, w, u))
 
         # Vraag om website te openen
         tk.Label(dialog, text="Wilt u het oorspronkelijke woord opzoeken?",
@@ -1839,11 +1811,11 @@ def perform_check():
     prisma_thread.start()
 
     # Voer de online check uit (nu met 7 returnwaarden)
-    is_valid, checked_word, error_message, article, word_info, gender, gender_info_list = check_word_online(selected_word)
+    is_valid, checked_word, error_message, article, word_info, gender = check_word_online(selected_word)
 
     # Geef feedback op basis van het resultaat
     if is_valid:
-        show_success_popup(checked_word, article, word_info, gender, gender_info_list)
+        show_success_popup(checked_word, article, word_info, gender)
     else:
         prisma_thread.join(timeout=6)  # Wacht max 6 seconden op Prisma
         # Kopieer resultaat alleen als de thread daadwerkelijk klaar is; voorkomt race bij timeout
