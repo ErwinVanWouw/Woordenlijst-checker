@@ -1221,6 +1221,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
 
         # Maak aangepast pop-upvenster
         popup = tk.Toplevel(root)
+        popup.withdraw()
         popup.title("Gevonden")
         popup.configure(bg='white')
 
@@ -1462,6 +1463,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
                 popup.focus_set()
                 popup.bind('<Return>', lambda e: popup.destroy())
 
+        popup.deiconify()
         auto_close[0] = popup.after(3000, popup.destroy)
 
         # Bind linkermuisklik op pop-up en alle child-widgets om timer te annuleren
