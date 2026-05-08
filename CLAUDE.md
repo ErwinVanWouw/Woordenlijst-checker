@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.6) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.6.1) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -300,6 +300,11 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.6.1
+- **Bugfix: failure popup not shown**: removing the `gender_info_list` parameter left several 7-tuple returns in `check_word_online` uncorrected; these caused a silent `ValueError` on unpack, so the "not found" popup never appeared.
+- **Success popup flash fixed**: the `Toplevel` window is now hidden immediately after creation (`withdraw`) and shown only after geometry and content are fully set (`deiconify`), eliminating the brief empty-window flash before the popup appeared.
+- **Code cleanup**: removed dead `gender_info_list` parameter chain (7-tuple → 6-tuple throughout), merged `_get_readme_path`/`_get_over_path` into `_get_asset_path`, moved `_pat_hyph` regex to module level, extracted `_toon_link_contextmenu` helper to replace three identical inline context-menu functions.
 
 ### v1.6
 - **Hyphenation in success popup**: syllabification now shows both the base form and the diminutive side by side, separated by a bold `|` (e.g. *mar·shal·low | mar·shal·low·tje*). For words with variant spellings (e.g. with/without trema), alternatives are shown with a bold `of` instead of the raw `#` separator from the API.
