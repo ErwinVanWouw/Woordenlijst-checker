@@ -16,6 +16,9 @@ import requests
 # Gekopieerde constanten uit woordenlijstchecker.py (synchroon houden)
 # ---------------------------------------------------------------------------
 
+# Vaste regex voor afbrekingsextractie (gespiegeld aan woordenlijstchecker.py)
+_pat_hyph = re.compile(r'<hyphenation>(.*?)</hyphenation>')
+
 WOORDSOORT_PREFIXES = [
     ('bijvoeglijk naamwoord / bijwoord', 'bijvoeglijk naamwoord / bijwoord'),
     ('bijvoeglijk naamwoord',            'bijvoeglijk naamwoord'),
@@ -179,7 +182,6 @@ def check_word_online(word):
 
             article = None
             gender = None
-            gender_info_list = None
 
             noun_entries = [e for e in entries if e.get('article')]
             if noun_entries:
@@ -222,10 +224,54 @@ def check_word_online(word):
                     'lemma': entries[0].get('lemma', word_normalized),
                     'is_meervoud': True,
                 })
-                word_info = {'entries': entries}
+                word_info['entries'] = entries
+
+            # Afbreking-extractie (gespiegeld aan woordenlijstchecker.py)
+            is_woordgroep = ' ' in word_normalized
+            _pat_wf_ci = re.compile(r'<wordform>' + wn_lower + r'</wordform>', re.IGNORECASE)
+
+            afbreking    = None
+            is_basisvorm = False
+            for block in paradigm_blocks:
+                has_own = _pat_wf_ci.search(block)
+                if is_woordgroep:
+                    if has_own:
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                    break
+                else:
+                    if '<position>0</position>' in block and has_own:
+                        is_basisvorm = True
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                        break
+
+            if not is_basisvorm and not is_woordgroep:
+                for block in paradigm_blocks:
+                    if _pat_wf_ci.search(block):
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                        break
+
+            afbreking_vk = None
+            if is_basisvorm:
+                for block in paradigm_blocks:
+                    if '<position>0</position>' in block and not _pat_wf_ci.search(block):
+                        hyph_m = _pat_hyph.search(block)
+                        if hyph_m and '|' in hyph_m.group(1):
+                            afbreking_vk = hyph_m.group(1).strip().replace('|', '·').replace(' # ', ' of ')
+                            break
+
+            if afbreking and word_info:
+                word_info['afbreking'] = afbreking
+            if afbreking_vk and word_info:
+                word_info['afbreking_vk'] = afbreking_vk
 
             if word_normalized in lemmas:
-                return True, word, None, article, word_info, gender, gender_info_list
+                return True, word, None, article, word_info, gender
 
             has_internal_caps_lemma = any(
                 any(c.isupper() for c in lemma[1:]) for lemma in lemmas
@@ -246,12 +292,12 @@ def check_word_online(word):
                             for i in range(min_len)
                         )
                         if exact_match:
-                            return True, word, None, article, word_info, gender, gender_info_list
+                            return True, word, None, article, word_info, gender
 
                 relevant_lemmas = [l for l in lemmas if any(c.isupper() for c in l[1:])]
                 if relevant_lemmas:
-                    return False, word, f"Gebruik '{relevant_lemmas[0]}'", None, None, None, None
-                return False, word, "Controleer de spelling", None, None, None, None
+                    return False, word, f"Gebruik '{relevant_lemmas[0]}'", None, None, None
+                return False, word, "Controleer de spelling", None, None, None
 
             for lemma in lemmas:
                 if lemma.lower() == word_normalized.lower() and lemma != word_normalized:
@@ -267,30 +313,30 @@ def check_word_online(word):
                     )
                     if is_sentence_caps:
                         continue
-                    return False, word, f"Gebruik '{lemma}'", None, None, None, None
+                    return False, word, f"Gebruik '{lemma}'", None, None, None
 
             if (len(word_normalized) > 1 and
                     word_normalized[0].isupper() and
                     word_normalized[1:].islower() and
                     ' ' not in word_normalized):
                 if word_normalized.lower() in wordforms or word_normalized.lower() in lemmas:
-                    return True, word, None, article, word_info, gender, gender_info_list
+                    return True, word, None, article, word_info, gender
 
             if word_normalized in wordforms or word_normalized in lemmas:
-                return True, word, None, article, word_info, gender, gender_info_list
+                return True, word, None, article, word_info, gender
 
-            return False, word, "Controleer de spelling", None, None, None, None
+            return False, word, "Controleer de spelling", None, None, None
 
         else:
             suggestions = get_spelling_suggestions(word_normalized)
             if suggestions:
-                return False, word, f"Bedoelde u: {suggestions}", None, None, None, None
-            return False, word, None, None, None, None, None
+                return False, word, f"Bedoelde u: {suggestions}", None, None, None
+            return False, word, None, None, None, None
 
     except requests.exceptions.RequestException as e:
-        return False, word, f"Netwerkfout: {e}", None, None, None, None
+        return False, word, f"Netwerkfout: {e}", None, None, None
     except Exception as e:
-        return False, word, f"Fout: {e}", None, None, None, None
+        return False, word, f"Fout: {e}", None, None, None
 
 
 def get_spelling_suggestions(word):
@@ -375,6 +421,11 @@ def formatteer_resultaat(word_in, is_valid, word_out, error_message, article, wo
                 lines.append("   " + "  ".join(parts))
         elif article:
             lines.append(f"   {article}  znw.  ({gender})" if gender else f"   {article}  znw.")
+        afbreking    = word_info.get('afbreking')    if word_info else None
+        afbreking_vk = word_info.get('afbreking_vk') if word_info else None
+        if afbreking or afbreking_vk:
+            tekst = ' | '.join(filter(None, [afbreking, afbreking_vk]))
+            lines.append(f"   afbreking: {tekst}")
     else:
         lines.append("✗  NIET GEVONDEN")
         if error_message:
@@ -441,7 +492,19 @@ TESTWOORDEN = [
     "taxi\u02BCs",   # modifier letter apostrophe (ʼ)
     "taxi's",        # standaard apostrof — correcte vorm
 
-    # --- Ronde 6: randgevallen & invoerfilter ---
+    # --- Ronde 6: afbreking (nieuwe gevallen) ---
+    # Basis + verkleinwoord naast elkaar
+    'marshmallow',
+    # Tussenwerpsel (geen afbreking zelf) + verkleinwoord (stop·je)
+    'stop',
+    # Werkwoord: eigen afbreking, geen verkleinwoord
+    'stoppen',
+    # Variant spelling met 'of' (trema vs. geen trema)
+    'officiële',
+    # Woordgroep enkelvoud
+    'ziekte van Parkinson',
+
+    # --- Ronde 7: randgevallen & invoerfilter ---
     'CO\u2082',      # subscript (CO₂)
     'm\u00B3',       # superscript (m³)
     'P@ssw0rd!',
@@ -476,7 +539,7 @@ def main():
             continue
 
         # Stap 3: API-controle
-        is_valid, word_out, error_message, article, word_info, gender, _ = check_word_online(woord)
+        is_valid, word_out, error_message, article, word_info, gender = check_word_online(woord)
 
         # Stap 4: resultaat zoals popup
         print(formatteer_resultaat(woord, is_valid, word_out, error_message, article, word_info, gender))

@@ -114,7 +114,7 @@ def controleer_woord(woord, verwacht):
     Geeft (geslaagd: bool, melding: str) terug.
     """
     woord_norm = normaliseer_apostrof(woord)
-    is_valid, _, error_msg, _, word_info, _, _ = check_word_online(woord_norm)
+    is_valid, _, error_msg, _, word_info, _ = check_word_online(woord_norm)
 
     entries = (word_info or {}).get('entries', [])
     gevonden_labels_raw = {}
