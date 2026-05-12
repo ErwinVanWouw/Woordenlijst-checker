@@ -1407,9 +1407,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
 
             if entries and entries[0].get('is_meervoud'):
                 disp0 = entries[0].get('display', 'znw.')
-                g = entries[0].get('gender')
-                suffix = f" ({g})" if g else ""
-                tk.Label(first_line_frame, text=f"  {disp0} mv.{suffix}", font=("Arial", 12), bg='white').pack(side='left')
+                tk.Label(first_line_frame, text=f"  {disp0} mv.", font=("Arial", 12), bg='white').pack(side='left')
             elif entries and entries[0].get('display') and not entries[0].get('article'):
                 # znw. groep zonder gender: toon alleen display-label (geen lidwoord)
                 tk.Label(first_line_frame, text=f"  {entries[0]['display']}", font=("Arial", 12), bg='white').pack(side='left')
