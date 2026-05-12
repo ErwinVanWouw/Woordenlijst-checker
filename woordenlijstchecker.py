@@ -531,20 +531,20 @@ def check_word_online(word):
             # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
             is_plural = bool(re.search(
                 r'<label>meervoud</label>.*?<wordform>' + wn_lower + r'</wordform>',
-                xml_content, re.DOTALL
+                xml_content, re.DOTALL | re.IGNORECASE
             ))
 
             # Per-blok: woord als meervoud binnen één paradigmablock (voor invariant naamwoord)
             is_meervoud_in_block = any(
                 re.search(r'<label>meervoud</label>', block) and
-                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block, re.IGNORECASE)
                 for block in paradigm_blocks
             )
 
             # Per-blok: woord ook als enkelvoud binnen één paradigmablock
             is_also_singular = any(
                 re.search(r'<label>enkelvoud</label>', block) and
-                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block, re.IGNORECASE)
                 for block in paradigm_blocks
             )
 
