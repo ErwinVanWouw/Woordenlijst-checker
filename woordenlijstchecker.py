@@ -1248,9 +1248,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
             dw = _entry_display_word(e)
             disp = e.get('display', '')
             if e.get('is_meervoud'):
-                g = e.get('gender')
-                suffix = f" ({g})" if g else ""
-                return len(f"'{dw}'  {disp} mv.{suffix}")
+                return len(f"'{dw}'  {disp} mv.")
             elif e.get('article') and e.get('gender'):
                 return len(f"'{dw}'  {e['article']} ({e['gender']})")
             elif e.get('article'):
@@ -1271,9 +1269,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
             entry0 = entries[0] if entries else None
             if entry0 and entry0.get('is_meervoud'):
                 disp0 = entry0.get('display', 'znw.')
-                g = entry0.get('gender')
-                suffix = f" ({g})" if g else ""
-                first_line = f"'{display_word}'  {disp0} mv.{suffix}"
+                first_line = f"'{display_word}'  {disp0} mv."
             elif entry0 and entry0.get('display') and not entry0.get('article'):
                 # znw. groep zonder gender, of display-only entry (ww., bw., etc.)
                 first_line = f"'{display_word}'  {entry0['display']}"
@@ -1346,9 +1342,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
                 disp = entry.get('display', '')
                 if entry.get('is_meervoud'):
                     # Meervoudsvorm van naamwoord
-                    g = entry.get('gender')
-                    suffix = f" ({g})" if g else ""
-                    tk.Label(line_frame, text=f"  {disp} mv.{suffix}", font=("Arial", 12), bg='white').pack(side='left')
+                    tk.Label(line_frame, text=f"  {disp} mv.", font=("Arial", 12), bg='white').pack(side='left')
                 elif entry.get('article') and entry.get('gender'):
                     # Enkelvoudig naamwoord met geslacht — 'znw.' weglaten, lidwoord+gender volstaat
                     tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
