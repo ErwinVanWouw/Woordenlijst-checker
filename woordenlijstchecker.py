@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -531,20 +531,20 @@ def check_word_online(word):
             # Breed (over volledige XML): voor de artikel-override bij pure meervoudsvormen
             is_plural = bool(re.search(
                 r'<label>meervoud</label>.*?<wordform>' + wn_lower + r'</wordform>',
-                xml_content, re.DOTALL
+                xml_content, re.DOTALL | re.IGNORECASE
             ))
 
             # Per-blok: woord als meervoud binnen één paradigmablock (voor invariant naamwoord)
             is_meervoud_in_block = any(
                 re.search(r'<label>meervoud</label>', block) and
-                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block, re.IGNORECASE)
                 for block in paradigm_blocks
             )
 
             # Per-blok: woord ook als enkelvoud binnen één paradigmablock
             is_also_singular = any(
                 re.search(r'<label>enkelvoud</label>', block) and
-                re.search(r'<wordform>' + wn_lower + r'</wordform>', block)
+                re.search(r'<wordform>' + wn_lower + r'</wordform>', block, re.IGNORECASE)
                 for block in paradigm_blocks
             )
 
@@ -1248,9 +1248,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
             dw = _entry_display_word(e)
             disp = e.get('display', '')
             if e.get('is_meervoud'):
-                g = e.get('gender')
-                suffix = f" ({g})" if g else ""
-                return len(f"'{dw}'  {disp} mv.{suffix}")
+                return len(f"'{dw}'  {disp} mv.")
             elif e.get('article') and e.get('gender'):
                 return len(f"'{dw}'  {e['article']} ({e['gender']})")
             elif e.get('article'):
@@ -1271,9 +1269,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
             entry0 = entries[0] if entries else None
             if entry0 and entry0.get('is_meervoud'):
                 disp0 = entry0.get('display', 'znw.')
-                g = entry0.get('gender')
-                suffix = f" ({g})" if g else ""
-                first_line = f"'{display_word}'  {disp0} mv.{suffix}"
+                first_line = f"'{display_word}'  {disp0} mv."
             elif entry0 and entry0.get('display') and not entry0.get('article'):
                 # znw. groep zonder gender, of display-only entry (ww., bw., etc.)
                 first_line = f"'{display_word}'  {entry0['display']}"
@@ -1346,9 +1342,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
                 disp = entry.get('display', '')
                 if entry.get('is_meervoud'):
                     # Meervoudsvorm van naamwoord
-                    g = entry.get('gender')
-                    suffix = f" ({g})" if g else ""
-                    tk.Label(line_frame, text=f"  {disp} mv.{suffix}", font=("Arial", 12), bg='white').pack(side='left')
+                    tk.Label(line_frame, text=f"  {disp} mv.", font=("Arial", 12), bg='white').pack(side='left')
                 elif entry.get('article') and entry.get('gender'):
                     # Enkelvoudig naamwoord met geslacht — 'znw.' weglaten, lidwoord+gender volstaat
                     tk.Label(line_frame, text=f"  {entry['article']}", font=("Arial", 12, "italic"), bg='white').pack(side='left')
@@ -1413,9 +1407,7 @@ def show_success_popup(word, article=None, word_info=None, gender=None):
 
             if entries and entries[0].get('is_meervoud'):
                 disp0 = entries[0].get('display', 'znw.')
-                g = entries[0].get('gender')
-                suffix = f" ({g})" if g else ""
-                tk.Label(first_line_frame, text=f"  {disp0} mv.{suffix}", font=("Arial", 12), bg='white').pack(side='left')
+                tk.Label(first_line_frame, text=f"  {disp0} mv.", font=("Arial", 12), bg='white').pack(side='left')
             elif entries and entries[0].get('display') and not entries[0].get('article'):
                 # znw. groep zonder gender: toon alleen display-label (geen lidwoord)
                 tk.Label(first_line_frame, text=f"  {entries[0]['display']}", font=("Arial", 12), bg='white').pack(side='left')
