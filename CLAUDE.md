@@ -303,6 +303,8 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 
 ### v1.6.2
 - **Bugfix: gender suffix removed from plural nouns**: plural nouns were showing the singular's grammatical gender (e.g. `znw. mv. (o)`) in the success popup, which is misleading because Dutch plurals always take the article *de* regardless of singular gender. Plural nouns now show `znw. mv.` without a gender suffix, consistent with woordenlijst.org.
+- **Bugfix: plural detection failed for capitalised wordforms**: `is_plural`, `is_meervoud_in_block` and `is_also_singular` all matched the lowercased input against the raw XML without `re.IGNORECASE`, so proper-noun plurals such as *Europees Parlementsleden* were not recognised as plural and incorrectly displayed `het (o)` instead of `znw. mv.`
+- **Bugfix: gender suffix persisted in single-entry fallback render branch**: the `else`/fallback branch in `show_success_popup` (reached when `article='de'` and `gender=None`) still rendered the entry's stored gender as `(o)`. Now consistently shows `znw. mv.` across all four render paths.
 
 ### v1.6.1
 - **Bugfix: failure popup not shown**: removing the `gender_info_list` parameter left several 7-tuple returns in `check_word_online` uncorrected; these caused a silent `ValueError` on unpack, so the "not found" popup never appeared.
