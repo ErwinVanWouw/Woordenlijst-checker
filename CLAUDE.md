@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.6.1) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.6.2) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -300,6 +300,9 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 ---
 
 ## Release Notes
+
+### v1.6.2
+- **Bugfix: gender suffix removed from plural nouns**: plural nouns were showing the singular's grammatical gender (e.g. `znw. mv. (o)`) in the success popup, which is misleading because Dutch plurals always take the article *de* regardless of singular gender. Plural nouns now show `znw. mv.` without a gender suffix, consistent with woordenlijst.org.
 
 ### v1.6.1
 - **Bugfix: failure popup not shown**: removing the `gender_info_list` parameter left several 7-tuple returns in `check_word_online` uncorrected; these caused a silent `ValueError` on unpack, so the "not found" popup never appeared.
