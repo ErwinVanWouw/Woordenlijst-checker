@@ -23,7 +23,7 @@ from PIL import Image
 # Onderdruk waarschuwingen
 warnings.filterwarnings("ignore", category=UserWarning)
 
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 
 # URL naar version.txt in de publieke repository (voor updatecontrole)
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ErwinVanWouw/Woordenlijst-checker/master/version.txt"
@@ -675,10 +675,16 @@ def check_word_online(word):
             # WOORD NIET GEVONDEN - VRAAG SUGGESTIES OP
             print(f"[Resultaat] '{word}' is NIET gevonden.")
 
-            # Haal suggesties op via spellcheck API; val terug op prefix-zoekopdracht
-            suggestions = get_spelling_suggestions(word_normalized)
-            if not suggestions:
+            # Koppeltekenwoorden: samenstellingen (prefix) zijn relevanter dan de
+            # spellcheck, die koppeltekens negeert (kat-en-muis → kattenmuziek)
+            if '-' in word_normalized:
                 suggestions = get_prefix_suggestions(word_normalized)
+                if not suggestions:
+                    suggestions = get_spelling_suggestions(word_normalized)
+            else:
+                suggestions = get_spelling_suggestions(word_normalized)
+                if not suggestions:
+                    suggestions = get_prefix_suggestions(word_normalized)
 
             if suggestions:
                 error_msg = f"Bedoelde u: {suggestions}"
