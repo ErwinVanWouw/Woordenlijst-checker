@@ -6,7 +6,7 @@ Met deze tool kunt u snel woorden opzoeken in de officiële (groene) en onoffici
 - Multi-monitor support 
 - Toont 3 seconden een verificatievenster als een woord voorkomt
 - Toont automatisch de bijbehorende woordsoort
-- Mogelijkheid om door te klikken naar Woordenlijst.org als een woord niet voorkomt 
+- Mogelijkheid om zoekwoord aan te passen als het niet voorkomt
 
 ## Installatie
 Ga naar [Releases](../../releases/), download het meest recente bestand en voer het programma uit. Het pakket bevat de Python-toepassing en alle benodigde afhankelijkheden in één bestand. Als u Python al op uw computer hebt staan, kunt u ook alleen het Python-bestand downloaden en uitvoeren.
@@ -14,9 +14,9 @@ Ga naar [Releases](../../releases/), download het meest recente bestand en voer 
 ## Gebruik
 Selecteer het woord dat u wilt opzoeken (Ctrl+Shift+Pijl links/rechts), druk op F9 en kijk op uw scherm.
 
-Als het geselecteerde woord voorkomt in de database van Woordenlijst.org, verschijnt er een pop-upvenster ter verificatie dat u het hebt gespeld volgens de officiële spelling van het Nederlands. Dit venster toont ook de relevante woordsoorten van het gezochte woord en sluit automatisch na drie seconden. Ondertussen kunt u gewoon verdergaan met uw werk. Klik in het pop-upvenster als u wilt dat het zichtbaar blijft.
+Als het geselecteerde woord voorkomt in de database van Woordenlijst.org, verschijnt er een pop-upvenster ter verificatie dat u het hebt gespeld volgens de officiële spelling van het Nederlands. Dit venster toont ook de relevante woordsoort(en) en afbrekingen van het gezochte woord en sluit automatisch na drie seconden. Ondertussen kunt u gewoon verdergaan met uw werk. Klik in het pop-upvenster als u wilt dat het zichtbaar blijft.
 
-Als het woord niet in de officiële Woordenlijst van de Nederlandse Taal staat, verschijnt er een dialoogvenster met mogelijke suggesties. In het zoekveld kunt u de spelling eventueel aanpassen om opnieuw te zoeken. Klik met de rechtermuisknop op een suggestie om die te kopiëren of op te zoeken. Als er een alternatieve 'Witte spelling' beschikbaar is op Onzetaal.nl, wordt deze ook weergegeven. Het gekopieerde woord blijft op het Windows-klembord staan.
+Als het woord niet in de officiële Woordenlijst van de Nederlandse Taal staat, verschijnt er een dialoogvenster waarin u de spelling kunt aanpassen of een van de drie mogelijke suggesties kunt aanklikken. Klik met de rechtermuisknop op een suggestie om die te kopiëren. Als er een alternatieve 'Witte spelling' beschikbaar is op Onzetaal.nl, wordt deze ook weergegeven.
 
 ## Aanpassen sneltoets of pop-uppositie 
 Bij de eerste keer opstarten creëert Woordenlijst-checker een configuratiebestand met F9 als sneltoets. Als deze sneltoets conflicteert met andere software op uw systeem, kunt u die sneltoets aanpassen. Rechtsklik op het systeemvakpictogram van Woordenlijst-checker, open 'Instellingen', vervang F9 door de gewenste sneltoets en klik op 'Wijzig'.
