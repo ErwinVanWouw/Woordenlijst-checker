@@ -328,7 +328,16 @@ def check_word_online(word):
             return False, word, "Controleer de spelling", None, None, None
 
         else:
-            suggestions = get_spelling_suggestions(word_normalized)
+            # Koppeltekenwoorden: samenstellingen (prefix) zijn relevanter dan de
+            # spellcheck, die koppeltekens negeert (kat-en-muis → kattenmuziek)
+            if '-' in word_normalized:
+                suggestions = get_prefix_suggestions(word_normalized)
+                if not suggestions:
+                    suggestions = get_spelling_suggestions(word_normalized)
+            else:
+                suggestions = get_spelling_suggestions(word_normalized)
+                if not suggestions:
+                    suggestions = get_prefix_suggestions(word_normalized)
             if suggestions:
                 return False, word, f"Bedoelde u: {suggestions}", None, None, None
             return False, word, None, None, None, None
@@ -352,18 +361,56 @@ def get_spelling_suggestions(word):
         response.raise_for_status()
         xml = response.text
 
-        corrections_match = re.search(r'<corrections>(.*?)</corrections>', xml, re.DOTALL)
+        corrections_match = re.search(r'<corrections>(.*?)</corrections>', xml)
         if corrections_match:
-            raw = corrections_match.group(1).strip()
-            suggestions = [s.strip() for s in raw.split('|') if s.strip()][:3]
-            if suggestions:
-                return ', '.join(suggestions)
+            corrections = corrections_match.group(1)
+            if corrections:
+                seen = set()
+                suggestions = []
+                for s in corrections.split('|'):
+                    s = s.strip()
+                    if s and s not in seen:
+                        seen.add(s)
+                        suggestions.append(s)
+                return ' / '.join(suggestions[:3])
 
-        best_guess_match = re.search(r'<best_guess>(.*?)</best_guess>', xml, re.DOTALL)
+        best_guess_match = re.search(r'<best_guess>(.*?)</best_guess>', xml)
         if best_guess_match:
-            return best_guess_match.group(1).strip()
+            best_guess = best_guess_match.group(1)
+            if best_guess:
+                return best_guess
 
         return None
+    except Exception:
+        return None
+
+
+def get_prefix_suggestions(word):
+    try:
+        params = {
+            "database": "gig_pro_wrdlst",
+            "wordform": f"^{re.escape(word)}",
+            "paradigm": "false",
+            "diminutive": "false",
+            "onlyvalid": "true",
+            "regex": "true",
+            "dummy": str(int(time.time() * 1000))
+        }
+        response = requests.get(
+            "https://woordenlijst.org/MolexServe/lexicon/find_wordform",
+            params=params, timeout=4
+        )
+        response.raise_for_status()
+        lemmas = re.findall(r'<lemma>([^<]+)</lemma>', response.text)
+        seen = set()
+        unique = []
+        for lemma in lemmas:
+            if lemma.lower() != word.lower() and lemma not in seen:
+                seen.add(lemma)
+                unique.append(lemma)
+                if len(unique) == 3:
+                    break
+        return ' / '.join(unique) if unique else None
     except Exception:
         return None
 
@@ -498,6 +545,12 @@ TESTWOORDEN = [
     'P@ssw0rd!',
     'MyS3cUr3P4ss',
     '112',
+
+    # --- Ronde 7: suggesties bij niet-gevonden woorden ---
+    'kat-en-muis',   # koppelteken → prefix (kat-en-muisspel)
+    'doe-het-zelf',  # koppelteken → prefix
+    'auto-ongeulk',  # koppelteken, tikfout → spellcheck
+    'fietz',         # geen koppelteken → spellcheck
 ]
 
 

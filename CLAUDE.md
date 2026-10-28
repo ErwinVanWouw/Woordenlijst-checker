@@ -4,7 +4,7 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Overview
 
-**Woordenlijst-checker** is a Windows desktop utility (v1.6.2) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
+**Woordenlijst-checker** is a Windows desktop utility (v1.6.3) that lets editors, proofreaders, and translators instantly verify Dutch spelling against the official [woordenlijst.org](https://woordenlijst.org/) database without leaving their active application. A global hotkey (default: F9) triggers a lookup of the selected word via clipboard, and a pop-up reports the result within seconds.
 
 **License:** GNU General Public License v3
 **Author:** Black Kite (blackkite.nl)
@@ -305,6 +305,8 @@ Most functions depend on tkinter GUI, live network access, or the system clipboa
 - **Bugfix: gender suffix removed from plural nouns**: plural nouns were showing the singular's grammatical gender (e.g. `znw. mv. (o)`) in the success popup, which is misleading because Dutch plurals always take the article *de* regardless of singular gender. Plural nouns now show `znw. mv.` without a gender suffix, consistent with woordenlijst.org.
 - **Bugfix: plural detection failed for capitalised wordforms**: `is_plural`, `is_meervoud_in_block` and `is_also_singular` all matched the lowercased input against the raw XML without `re.IGNORECASE`, so proper-noun plurals such as *Europees Parlementsleden* were not recognised as plural and incorrectly displayed `het (o)` instead of `znw. mv.`
 - **Bugfix: gender suffix persisted in single-entry fallback render branch**: the `else`/fallback branch in `show_success_popup` (reached when `article='de'` and `gender=None`) still rendered the entry's stored gender as `(o)`. Now consistently shows `znw. mv.` across all four render paths.
+
+### v1.6.3
 - **Compound suggestions for hyphenated words**: for not-found input containing a hyphen, the prefix search (`get_prefix_suggestions`) now runs *before* the spellcheck API. The spellcheck ignores hyphens and returned edit-distance noise (e.g. *kat-en-muis* → *kattenmuziek*), which prevented the prefix fallback from ever running; *kat-en-muis* now suggests *kat-en-muisspel*. If the prefix search finds nothing (typos such as *auto-ongeulk*), the spellcheck is used as before. Words without a hyphen are unaffected.
 
 ### v1.6.1
